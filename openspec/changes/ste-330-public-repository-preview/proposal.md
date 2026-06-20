@@ -5,8 +5,8 @@
 - [x] Proposed
 - [x] Accepted
 - [x] Implemented
-- [ ] Verified
-- [ ] Archived
+- [x] Verified
+- [x] Archived
 
 ## Summary
 
