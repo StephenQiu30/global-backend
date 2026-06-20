@@ -18,3 +18,7 @@ temp/
 !.env.example
 __pycache__/
 .symphony-claude-prompt.*
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
