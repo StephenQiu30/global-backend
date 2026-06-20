@@ -99,3 +99,57 @@ def test_translation_failure_creates_no_branch_no_pr():
     assert github.put_file.call_count == 0
     assert github.create_pull_request.call_count == 0
     assert result["status"] == "failed"
+
+
+def test_pr_body_uses_build_translation_pr_body():
+    """PR body must include file mappings, provider name, and task ID (S4)."""
+    github = MagicMock()
+    github.create_branch.return_value = "translate/zh-CN/task-001"
+    github.put_file.return_value = None
+    github.create_pull_request.return_value = {"number": 1, "url": "https://github.com/owner/repo/pull/1"}
+
+    provider = MagicMock()
+    provider.translate_markdown.return_value = "# translated"
+
+    runner = _make_runner(github_client=github, translation_provider=provider)
+
+    runner.run(
+        installation_id=1,
+        repository_full_name="owner/repo",
+        base_branch="main",
+        files=["README.md", "docs/guide.md"],
+        language="zh-CN",
+        task_id="task-001",
+        provider_name="openai",
+    )
+
+    # PR body must contain file mappings and provider info
+    pr_call = github.create_pull_request.call_args
+    body = pr_call.kwargs.get("body") or pr_call[0][3]
+    assert "README.md" in body
+    assert "README.zh-CN.md" in body
+    assert "openai" in body
+    assert "task-001" in body
+
+
+def test_github_failure_in_phase2_returns_failed():
+    """If a GitHub API call fails in Phase 2, task returns failed status (S6)."""
+    github = MagicMock()
+    github.create_branch.side_effect = RuntimeError("permission denied")
+
+    provider = MagicMock()
+    provider.translate_markdown.return_value = "# translated"
+
+    runner = _make_runner(github_client=github, translation_provider=provider)
+
+    result = runner.run(
+        installation_id=1,
+        repository_full_name="owner/repo",
+        base_branch="main",
+        files=["README.md"],
+        language="zh-CN",
+        task_id="task-001",
+    )
+
+    assert result["status"] == "failed"
+    assert "permission denied" in result["error"]
