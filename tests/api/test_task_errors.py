@@ -1,7 +1,6 @@
 """Tests for task API error mapping."""
 
 import pytest
-from unittest.mock import patch
 
 from fastapi import HTTPException
 
