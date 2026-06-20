@@ -21,7 +21,8 @@ _COMBINED = re.compile(
     r"|(?P<html_comment><!--[\s\S]*?-->)"
     r"|(?P<inline_code>`[^`\n]+`)"
     r"|(?P<image_url>!\[(?P<image_url_alt>[^\]]*)\]\((?P<image_url_url>[^)]+)\))"
-    r"|(?P<link_url>\[(?P<link_url_label>[^\]]*)\]\((?P<link_url_url>[^)]+)\))",
+    r"|(?P<link_url>\[(?P<link_url_label>[^\]]*)\]\((?P<link_url_url>[^)]+)\))"
+    r"|(?P<table_separator>^\|[\s\-:]+(\|[\s\-:]+)*\|$)",
     re.MULTILINE,
 )
 
@@ -91,6 +92,10 @@ def protect_markdown(source: str) -> ProtectedMarkdown:
             placeholder = _make_placeholder()
             placeholders[placeholder] = url
             return f"[{label}]({placeholder})"
+        if match.group("table_separator") is not None:
+            placeholder = _make_placeholder()
+            placeholders[placeholder] = match.group("table_separator")
+            return placeholder
         return match.group(0)  # fallback, should not happen
 
     result = _COMBINED.sub(_replace, source)
