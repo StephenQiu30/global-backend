@@ -1,11 +1,12 @@
 """Tests for Markdown files API endpoint."""
 
+import asyncio
 import pytest
 from unittest.mock import patch, AsyncMock
 
 from fastapi.testclient import TestClient
 
-from app.api.repositories import router
+from app.api.repositories import router, verify_repository_authorization
 from app.services.markdown_discovery import MarkdownFileInfo
 
 
@@ -16,6 +17,25 @@ def client():
     app = FastAPI()
     app.include_router(router)
     return TestClient(app)
+
+
+class TestVerifyRepositoryAuthorization:
+    """Test verify_repository_authorization function."""
+
+    def test_valid_installation_id(self):
+        """GIVEN valid installation_id THEN returns True."""
+        result = asyncio.run(verify_repository_authorization("test-123", "owner", "repo"))
+        assert result is True
+
+    def test_empty_installation_id(self):
+        """GIVEN empty installation_id THEN returns False."""
+        result = asyncio.run(verify_repository_authorization("", "owner", "repo"))
+        assert result is False
+
+    def test_none_installation_id(self):
+        """GIVEN None installation_id THEN returns False."""
+        result = asyncio.run(verify_repository_authorization(None, "owner", "repo"))
+        assert result is False
 
 
 class TestGetMarkdownFiles:
@@ -141,15 +161,16 @@ class TestGetMarkdownFiles:
             ),
         ]
 
+        # Note: This file exceeds MAX_TOTAL_SIZE, so validate_selection will return error
+        # The endpoint now calls validate_selection, so this will return 400
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
             params={"installation_id": "test-install-123"}
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 400
         data = response.json()
-        assert data[0]["disabled_reason"] is not None
-        assert "exceeds maximum" in data[0]["disabled_reason"]
+        assert data["detail"]["error"] == "selection_limit_exceeded"
 
     @patch("app.api.repositories.discover_markdown_files")
     def test_response_format(self, mock_discover, client):
@@ -183,3 +204,30 @@ class TestGetMarkdownFiles:
         assert "disabled_reason" in file
         assert "target_path_preview" in file
         assert "target_exists" in file
+
+    @patch("app.api.repositories.discover_markdown_files")
+    def test_validate_selection_called(self, mock_discover, client):
+        """GIVEN files exceeding limits THEN returns 400 selection_limit_exceeded."""
+        # Create 11 files to exceed MAX_FILE_COUNT (10)
+        mock_discover.return_value = [
+            MarkdownFileInfo(
+                path=f"file{i}.md",
+                size_bytes=1024,
+                is_default_readme=False,
+                is_translated_variant=False,
+                disabled_reason=None,
+                target_path_preview=f"file{i}.zh-CN.md",
+                target_exists=False,
+            )
+            for i in range(11)
+        ]
+
+        response = client.get(
+            "/api/repositories/test-owner/test-repo/markdown-files",
+            params={"installation_id": "test-install-123"}
+        )
+
+        assert response.status_code == 400
+        data = response.json()
+        assert data["detail"]["error"] == "selection_limit_exceeded"
+        assert "file count" in data["detail"]["message"].lower()

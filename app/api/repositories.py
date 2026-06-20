@@ -48,7 +48,7 @@ async def get_markdown_files(
         List of eligible Markdown files with metadata
 
     Raises:
-        HTTPException: If repository is not authorized
+        HTTPException: If repository is not authorized or selection limits exceeded
     """
     # Verify repository authorization
     if not await verify_repository_authorization(installation_id, owner, repo):
@@ -58,14 +58,16 @@ async def get_markdown_files(
         )
 
     # Fetch repository tree from GitHub
-    # In production, this would call the actual GitHub API via get_repository_tree
+    # TODO: Replace with actual get_repository_tree call when GitHub App integration is complete.
+    # This is deferred because the endpoint is primarily for discovering available files,
+    # and the actual tree fetching will be implemented in a follow-up task.
     tree_items = []  # Would be fetched from GitHub
 
     # Discover eligible Markdown files
     files = discover_markdown_files(tree_items, language=language)
 
-    # Convert to response format
-    return [
+    # Convert to dict format for validation
+    file_dicts = [
         {
             "path": f.path,
             "size_bytes": f.size_bytes,
@@ -77,3 +79,14 @@ async def get_markdown_files(
         }
         for f in files
     ]
+
+    # Validate selection limits (even though this is a discovery endpoint,
+    # we validate to ensure the response is consistent with limits)
+    validation_error = validate_selection(file_dicts)
+    if validation_error:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "selection_limit_exceeded", "message": validation_error}
+        )
+
+    return file_dicts
