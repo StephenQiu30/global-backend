@@ -5,11 +5,55 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.errors import AppError
 from app.domain.languages import validate_language_code
 from app.domain.task import TaskResult
 from app.services.task_runner import TaskRunner
 
 router = APIRouter()
+
+# Error code -> HTTP status mapping for known application errors.
+_ERROR_STATUS_MAP: dict[str, int] = {
+    "github_permission_denied": 403,
+    "github_rate_limited": 429,
+    "model_timeout": 504,
+    "model_rate_limited": 429,
+    "translation_failed": 500,
+}
+
+
+def map_error_to_response(error: Exception) -> HTTPException:
+    """Convert an exception to a safe HTTPException.
+
+    Maps known AppError codes to appropriate HTTP status codes.
+    Unknown errors get a generic 500 response that never leaks
+    internal details like stack traces, tokens, or secrets.
+
+    Args:
+        error: The exception to map.
+
+    Returns:
+        HTTPException with safe detail dict.
+    """
+    if isinstance(error, AppError) and error.code in _ERROR_STATUS_MAP:
+        return HTTPException(
+            status_code=_ERROR_STATUS_MAP[error.code],
+            detail={
+                "error": error.code,
+                "message": error.message,
+                "retryable": error.retryable,
+            },
+        )
+
+    # Unknown AppError or unhandled exception: generic safe response.
+    return HTTPException(
+        status_code=500,
+        detail={
+            "error": "internal_error",
+            "message": "An unexpected error occurred",
+            "retryable": False,
+        },
+    )
 
 
 class TranslationTaskRequest(BaseModel):
