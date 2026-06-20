@@ -18,4 +18,6 @@ temp/
 !.env.example
 __pycache__/
 *.pyc
+*.pyo
 .venv/
+.pytest_cache/
