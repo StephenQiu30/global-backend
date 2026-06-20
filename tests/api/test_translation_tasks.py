@@ -145,7 +145,7 @@ class TestTranslationTasksLanguageValidation:
         })
         assert response.status_code == 400
         data = response.json()
-        assert data["error"] == "unsupported_language"
+        assert data["detail"]["error"] == "unsupported_language"
 
     def test_empty_language_rejected(self, client):
         response = client.post("/api/translation-tasks", json={
@@ -155,7 +155,7 @@ class TestTranslationTasksLanguageValidation:
             "files": ["README.md"],
             "language": "",
         })
-        assert response.status_code == 400
+        assert response.status_code == 422
 
     def test_similar_language_code_rejected(self, client):
         response = client.post("/api/translation-tasks", json={
