@@ -3,6 +3,7 @@
 from fastapi import FastAPI
 
 from app.api.installations import router as installations_router
+from app.api.repositories import router as repositories_router
 from app.api.tasks import router as tasks_router, _get_task_runner
 from app.services.task_runner import TaskRunner
 
@@ -26,6 +27,7 @@ def create_app(task_runner: TaskRunner | None = None) -> FastAPI:
         app.dependency_overrides[_get_task_runner] = lambda: task_runner
 
     app.include_router(installations_router, prefix="/api/github")
+    app.include_router(repositories_router, prefix="/api")
     app.include_router(tasks_router, prefix="/api")
 
     return app

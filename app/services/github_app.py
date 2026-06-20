@@ -57,3 +57,11 @@ class GitHubAppClient:
             if e.status == 404:
                 raise ValueError(f"Installation {installation_id} not found") from e
             raise RuntimeError(f"GitHub API error: {e}") from e
+
+    def is_repository_authorized(
+        self, installation_id: int, full_name: str
+    ) -> bool:
+        """Check if a repository is authorized for an installation."""
+        repos = self.get_installation_repos(installation_id)
+        normalized_target = full_name.lower()
+        return any(repo.full_name.lower() == normalized_target for repo in repos)
