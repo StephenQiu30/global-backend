@@ -99,7 +99,7 @@ async def get_markdown_files(
     # Verify repository authorization
     client = get_github_client()
     is_authorized = client.is_repository_authorized(
-        installation_id=int(installation_id) if installation_id else 0,
+        installation_id=installation_id,
         full_name=f"{owner}/{repo}",
     )
 

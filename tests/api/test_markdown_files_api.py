@@ -2,11 +2,11 @@
 
 import asyncio
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, MagicMock
 
 from fastapi.testclient import TestClient
 
-from app.api.repositories import router, verify_repository_authorization
+from app.api.repositories import router
 from app.services.markdown_discovery import MarkdownFileInfo
 
 
@@ -19,35 +19,32 @@ def client():
     return TestClient(app)
 
 
-class TestVerifyRepositoryAuthorization:
-    """Test verify_repository_authorization function."""
-
-    def test_valid_installation_id(self):
-        """GIVEN valid installation_id THEN returns True."""
-        result = asyncio.run(verify_repository_authorization("test-123", "owner", "repo"))
-        assert result is True
-
-    def test_empty_installation_id(self):
-        """GIVEN empty installation_id THEN returns False."""
-        result = asyncio.run(verify_repository_authorization("", "owner", "repo"))
-        assert result is False
-
-    def test_none_installation_id(self):
-        """GIVEN None installation_id THEN returns False."""
-        result = asyncio.run(verify_repository_authorization(None, "owner", "repo"))
-        assert result is False
+@pytest.fixture(autouse=True)
+def mock_github_client():
+    """Mock GitHub client for all tests."""
+    mock_client = MagicMock()
+    mock_client.is_repository_authorized.return_value = True
+    with patch("app.api.repositories.get_github_client") as mock_func:
+        mock_func.return_value = mock_client
+        yield mock_client
+        mock_func.reset_mock()
 
 
 class TestGetMarkdownFiles:
     """Test GET /api/repositories/{owner}/{repo}/markdown-files endpoint."""
 
-    def test_missing_installation_id(self, client):
+    def test_missing_installation_id(self, client, mock_github_client):
         """GIVEN no installation_id THEN returns 404 repository_not_installed."""
+        mock_github_client.is_repository_authorized.return_value = False
         response = client.get("/api/repositories/test-owner/test-repo/markdown-files")
 
         assert response.status_code == 404
         data = response.json()
         assert data["detail"]["error"] == "repository_not_installed"
+        mock_github_client.is_repository_authorized.assert_called_once_with(
+            installation_id=None,
+            full_name="test-owner/test-repo",
+        )
 
     @patch("app.api.repositories.discover_markdown_files")
     def test_empty_repository(self, mock_discover, client):
