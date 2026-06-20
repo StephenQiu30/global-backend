@@ -6,7 +6,7 @@
 - [x] Accepted
 - [x] Implemented
 - [x] Verified
-- [ ] Archived
+- [x] Archived
 
 ## Summary
 
