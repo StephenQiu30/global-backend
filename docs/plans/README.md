@@ -19,3 +19,7 @@
 ## 命名建议
 
 使用 `序号-主题-计划.md`，例如 `001-docs目录治理计划.md`。
+
+## 当前计划
+
+1. [GitHub Markdown Translator](github-translator/README.md)：对应 `docs/prd/github-translator/` 下每一个 PRD 文件的实现计划集合。每个 PRD 都有独立 plan 文件，便于按功能点执行、验证和提交。
