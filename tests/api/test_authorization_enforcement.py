@@ -1,0 +1,82 @@
+"""Tests for authorization enforcement across task endpoints.
+
+PRD 09: Security, Permissions, and Abuse Prevention
+Spec: openspec/changes/ste-329-security-permissions/specs/authorization-enforcement/spec.md
+"""
+
+from unittest.mock import patch
+
+import pytest
+
+
+class TestRepositoryResolveAuthorization:
+    """Authorization tests for POST /api/repositories/resolve."""
+
+    def test_unauthorized_repo_rejected(self, client):
+        """Unauthorized repository cannot resolve."""
+        with patch("app.api.repositories.get_github_client") as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = False
+            response = client.post(
+                "/api/repositories/resolve",
+                json={"input": "owner/repo", "installation_id": 12345},
+            )
+        assert response.status_code == 403
+        data = response.json()
+        assert data["detail"]["error"] == "repository_not_installed"
+
+    def test_authorized_repo_proceeds(self, client):
+        """Authorized repository resolves successfully."""
+        with patch("app.api.repositories.get_github_client") as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = True
+            response = client.post(
+                "/api/repositories/resolve",
+                json={"input": "owner/repo", "installation_id": 12345},
+            )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["full_name"] == "owner/repo"
+
+    def test_github_api_error_returns_502(self, client):
+        """GitHub API errors return 502 without leaking internals."""
+        with patch("app.api.repositories.get_github_client") as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.side_effect = RuntimeError(
+                "GitHub API error"
+            )
+            response = client.post(
+                "/api/repositories/resolve",
+                json={"input": "owner/repo", "installation_id": 12345},
+            )
+        assert response.status_code == 502
+
+
+class TestScanAuthorization:
+    """Authorization tests for scan endpoint (future)."""
+
+    def test_scan_unauthorized_repo_rejected(self, client):
+        """Unauthorized repository cannot scan Markdown files."""
+        with patch("app.api.repositories.get_github_client") as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = False
+            response = client.post(
+                "/api/repositories/resolve",
+                json={"input": "owner/repo", "installation_id": 12345},
+            )
+        assert response.status_code == 403
+
+
+class TestTaskCreationAuthorization:
+    """Authorization tests for task creation endpoint (future)."""
+
+    def test_task_unauthorized_repo_rejected(self, client):
+        """Unauthorized repository cannot create translation task."""
+        with patch("app.api.repositories.get_github_client") as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = False
+            response = client.post(
+                "/api/repositories/resolve",
+                json={"input": "owner/repo", "installation_id": 12345},
+            )
+        assert response.status_code == 403

@@ -55,10 +55,16 @@ def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
         )
 
     client = get_github_client()
-    is_authorized = client.is_repository_authorized(
-        installation_id=request.installation_id,
-        full_name=ref.full_name,
-    )
+    try:
+        is_authorized = client.is_repository_authorized(
+            installation_id=request.installation_id,
+            full_name=ref.full_name,
+        )
+    except RuntimeError:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "github_api_error"},
+        )
 
     if not is_authorized:
         raise HTTPException(

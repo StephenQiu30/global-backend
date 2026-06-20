@@ -1,4 +1,4 @@
-"""Domain rules for Markdown file classification and selection."""
+"""Domain rules for Markdown file classification, selection, and safety validation."""
 
 import re
 from pathlib import PurePosixPath
@@ -15,16 +15,44 @@ TRANSLATED_VARIANT_PATTERN = re.compile(
     r'^(.+)\.([a-z]{2}(?:-[A-Z]{2})?)\.(md|markdown)$'
 )
 
+# Security validation pattern (PRD 09)
+_SECURITY_TRANSLATED_PATTERN = re.compile(r"\.[a-z]{2}(-[A-Z]{2})?\.md$")
+_MARKDOWN_EXTENSIONS = {".md", ".markdown"}
+
+
+def validate_markdown_path(path: str) -> str:
+    """Validate a Markdown file path for safety (PRD 09).
+
+    Returns normalized path on success.
+    Raises ValueError with error code as message prefix on failure.
+    """
+    if not path or not path.strip():
+        raise ValueError("empty_path: path is empty or whitespace")
+
+    path = path.strip()
+
+    if ".." in path:
+        raise ValueError("path_traversal: path must not contain ..")
+
+    if path.startswith("/"):
+        raise ValueError("absolute_path: path must not be absolute")
+
+    dot_pos = path.rfind(".")
+    if dot_pos == -1:
+        raise ValueError("unsupported_file_type: only .md and .markdown allowed")
+
+    ext = path[dot_pos:].lower()
+    if ext not in _MARKDOWN_EXTENSIONS:
+        raise ValueError("unsupported_file_type: only .md and .markdown allowed")
+
+    if _SECURITY_TRANSLATED_PATTERN.search(path):
+        raise ValueError("translated_variant: translated files cannot be source")
+
+    return path
+
 
 def is_supported_markdown_path(path: str) -> bool:
-    """Check if path has .md or .markdown extension.
-
-    Args:
-        path: File path to check
-
-    Returns:
-        True if the file has a supported Markdown extension
-    """
+    """Check if path has .md or .markdown extension."""
     ext = PurePosixPath(path).suffix.lower()
     return ext in SUPPORTED_EXTENSIONS
 
@@ -36,47 +64,23 @@ def is_translated_variant(path: str) -> bool:
         - README.zh-CN.md -> True
         - guide.en.md -> True
         - README.md -> False
-
-    Args:
-        path: File path to check
-
-    Returns:
-        True if the file appears to be a translated variant
     """
     filename = PurePosixPath(path).name
     return bool(TRANSLATED_VARIANT_PATTERN.match(filename))
 
 
 def is_safe_path(path: str) -> bool:
-    """Reject directory traversal and absolute paths.
-
-    Args:
-        path: File path to validate
-
-    Returns:
-        True if the path is safe (no traversal, not absolute)
-    """
-    # Reject absolute paths
+    """Reject directory traversal and absolute paths."""
     if path.startswith('/'):
         return False
-
-    # Normalize and check for directory traversal
     parts = PurePosixPath(path).parts
     if '..' in parts:
         return False
-
     return True
 
 
 def is_in_excluded_directory(path: str) -> bool:
-    """Check if path is in an excluded directory.
-
-    Args:
-        path: File path to check
-
-    Returns:
-        True if the path is in .git, node_modules, dist, build, or .next
-    """
+    """Check if path is in an excluded directory."""
     parts = PurePosixPath(path).parts
     return any(part in EXCLUDED_DIRS for part in parts)
 
@@ -87,20 +91,12 @@ def target_translation_path(source_path: str, language: str) -> str:
     Examples:
         - README.md + zh-CN -> README.zh-CN.md
         - docs/guide.md + ja -> docs/guide.ja.md
-
-    Args:
-        source_path: Original file path
-        language: Target language code
-
-    Returns:
-        Target path with language suffix inserted before extension
     """
     p = PurePosixPath(source_path)
     ext = p.suffix
     stem = p.stem
     parent = p.parent
 
-    # Handle .markdown extension
     if ext == '.markdown':
         new_name = f"{stem}.{language}.markdown"
     else:
@@ -116,13 +112,7 @@ def validate_selection(
 ) -> Optional[str]:
     """Validate selection against count and size limits.
 
-    Args:
-        files: List of file dicts with 'size_bytes' key
-        max_count: Maximum number of files allowed
-        max_total_size: Maximum total size in bytes
-
-    Returns:
-        Error message if validation fails, None if valid
+    Returns error message if validation fails, None if valid.
     """
     if len(files) > max_count:
         return f"Selection exceeds maximum file count ({max_count})"
@@ -135,12 +125,5 @@ def validate_selection(
 
 
 def is_default_readme(path: str) -> bool:
-    """Check if path is the root README.md.
-
-    Args:
-        path: File path to check
-
-    Returns:
-        True if this is the root README.md
-    """
+    """Check if path is the root README.md."""
     return path in ('README.md', 'README.markdown')
