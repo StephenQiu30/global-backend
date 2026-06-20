@@ -13,7 +13,7 @@
 - Do not push directly to default branch.
 - Write only target language suffix files.
 - Multiple files in one task go into one branch and one PR.
-- Failed translation must not create a half-finished PR.
+- Translation must complete for every selected file before the first GitHub write. Failed translation must not create a branch, file commit, or half-finished PR.
 - PRD source: `docs/prd/github-translator/07-pr-submission.md`.
 
 ---
@@ -50,6 +50,7 @@
 - [ ] Implement `put_file(installation_id, full_name, branch, path, content, message)`.
 - [ ] Base64-encode content.
 - [ ] Support update of existing target file by fetching existing SHA first.
+- [ ] Ensure file writes reject source paths and accept only target language suffix paths.
 - [ ] Run: `pytest tests/services/test_github_file_write.py -v`; expect pass.
 - [ ] Commit: `feat: 添加 GitHub 翻译文件写入`
 
@@ -103,13 +104,17 @@
 
 **Steps:**
 - [ ] Write failing test asserting call order: create branch, write files, create PR.
+- [ ] Write failing test asserting translation of all selected files completes before `create_branch` is called.
+- [ ] Write failing test asserting a translation failure creates no branch, no file write, and no PR.
 - [ ] Update task runner to use branch/file/PR methods.
-- [ ] Ensure no PR is created if translation fails before writes complete.
+- [ ] Split task runner into two phases: prepare all translated outputs in memory, then perform GitHub writes.
+- [ ] Ensure no GitHub write happens if any translation, target path validation, or size validation fails.
 - [ ] Run: `pytest tests/services/test_task_runner_pr_flow.py -v`; expect pass.
 - [ ] Commit: `feat: 串联翻译任务 PR 提交流程`
 
 **Acceptance:**
 - Multi-file translation creates one branch and one PR.
+- Translation failure before write phase leaves the target repository unchanged.
 
 ## Verification
 

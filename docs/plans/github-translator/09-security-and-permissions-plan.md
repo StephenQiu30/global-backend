@@ -15,6 +15,7 @@
 - Path traversal is rejected.
 - Installation tokens never reach frontend responses.
 - All writes happen on translation branches.
+- Public repository preview, issue-comment commands, fork PRs, and OAuth user tokens are outside first-version security scope.
 - PRD source: `docs/prd/github-translator/09-security-and-permissions.md`.
 
 ---
@@ -49,6 +50,7 @@
 **Steps:**
 - [ ] Write failing test that unauthorized repository cannot scan Markdown.
 - [ ] Write failing test that unauthorized repository cannot create translation task.
+- [ ] Write failing test that task execution re-checks authorization even if the frontend previously resolved the repository.
 - [ ] Add shared authorization check service.
 - [ ] Return `repository_not_installed` for unauthorized repo.
 - [ ] Run: `pytest tests/api/test_authorization_enforcement.py -v`; expect pass.
@@ -85,6 +87,7 @@
 **Steps:**
 - [ ] Write failing test for more than 10 files.
 - [ ] Write failing test for total source size over 200KB.
+- [ ] Write failing test that source file sizes are calculated from fetched GitHub contents, not trusted request payloads.
 - [ ] Enforce limits before calling translation provider.
 - [ ] Return retryable false error for limit violations.
 - [ ] Run: `pytest tests/services/test_task_limits.py -v`; expect pass.

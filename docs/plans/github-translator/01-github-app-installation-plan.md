@@ -13,6 +13,7 @@
 - GitHub App installation is the first-version permission boundary.
 - The frontend must not receive GitHub private keys or installation tokens.
 - Required permissions: Contents read/write, Pull requests read/write, Metadata read-only.
+- Frontend installation entry must use a backend-provided install URL, not a hard-coded GitHub App URL, so callback URL, app slug, and future environment differences stay server-controlled.
 - PRD source: `docs/prd/github-translator/01-github-app-installation.md`.
 
 ---
@@ -79,7 +80,29 @@
 **Acceptance:**
 - Frontend can fetch authorized repositories after installation.
 
-## Task 4: Frontend Install Entry UI
+## Task 4: Backend GitHub App Install URL API
+
+**Repo:** `global-backend`
+
+**Files:**
+- Modify: `app/core/config.py`
+- Modify: `app/api/installations.py`
+- Test: `tests/api/test_install_url.py`
+
+**Steps:**
+- [ ] Write a failing test for `GET /api/github/app/install-url`.
+- [ ] Add `github_app_slug` and `frontend_install_callback_url` settings.
+- [ ] Build the URL as `https://github.com/apps/{github_app_slug}/installations/new?state={signed_state}`.
+- [ ] Include a signed, short-lived `state` value so callback requests can be correlated without exposing secrets.
+- [ ] Return only `{ "install_url": "..." }`.
+- [ ] Run: `pytest tests/api/test_install_url.py -v`; expect pass.
+- [ ] Commit: `feat: 添加 GitHub App 安装链接接口`
+
+**Acceptance:**
+- Frontend can request an install URL from backend.
+- The response does not include private key, installation token, or webhook secret.
+
+## Task 5: Frontend Install Entry UI
 
 **Repo:** `global-frontend`
 
@@ -93,14 +116,15 @@
 - [ ] Write a failing component test for install CTA text `安装 GitHub App`.
 - [ ] Scaffold Next.js, TypeScript, Tailwind, Vitest.
 - [ ] Implement homepage and `InstallCard` with permission explanation.
-- [ ] Configure `NEXT_PUBLIC_GITHUB_APP_INSTALL_URL` in `.env.example`.
+- [ ] Fetch `GET /api/github/app/install-url` through the frontend API client and use the returned `install_url`.
+- [ ] Configure `NEXT_PUBLIC_API_BASE_URL` in `.env.example`; do not require `NEXT_PUBLIC_GITHUB_APP_INSTALL_URL`.
 - [ ] Run: `npm test -- src/components/InstallCard.test.tsx`; expect pass.
 - [ ] Commit: `feat: 添加 GitHub App 安装入口`
 
 **Acceptance:**
 - Homepage clearly explains install purpose and links to GitHub App install URL.
 
-## Task 5: Frontend Installation Callback UI
+## Task 6: Frontend Installation Callback UI
 
 **Repo:** `global-frontend`
 
@@ -111,9 +135,10 @@
 
 **Steps:**
 - [ ] Write a failing test for callback page showing `installation_id`.
-- [ ] Implement callback page with success and missing parameter states.
-- [ ] Add API client function to call backend verification.
+- [ ] Implement callback page with success, missing parameter, canceled installation, and invalid state states.
+- [ ] Add API client function to call backend verification with both `installation_id` and `state`.
 - [ ] Show installed account and repository count when backend returns data.
+- [ ] Render a retry link back to the backend install URL when callback verification fails.
 - [ ] Run: `npm test -- src/app/install/callback/page.test.tsx`; expect pass.
 - [ ] Commit: `feat: 添加 GitHub App 安装回调页面`
 
@@ -125,7 +150,7 @@
 Backend:
 
 ```bash
-pytest tests/api/test_installations.py tests/api/test_installation_repositories.py -v
+pytest tests/api/test_install_url.py tests/api/test_installations.py tests/api/test_installation_repositories.py -v
 scripts/validate-repository.sh
 git diff --check
 ```

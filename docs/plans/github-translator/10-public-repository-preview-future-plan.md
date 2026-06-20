@@ -14,6 +14,7 @@
 - Public preview must not write to GitHub.
 - Public preview can read only public Markdown files.
 - PR submission still requires GitHub App installation or future fork/OAuth flow.
+- Public preview must have a separate rate-limit and cache policy before launch because unauthenticated GitHub reads are rate limited.
 - PRD source: `docs/prd/github-translator/10-public-repository-preview-future.md`.
 
 ---
@@ -30,7 +31,8 @@
 - [ ] Write failing test for listing public `README.md` through GitHub tree API.
 - [ ] Implement unauthenticated public repository read client.
 - [ ] Reuse Markdown file filters from PRD 03.
-- [ ] Return rate-limit friendly errors.
+- [ ] Return rate-limit friendly errors with `rate_limited` code and retry guidance.
+- [ ] Add a small cache abstraction for public tree responses so repeated previews do not exhaust GitHub API rate limits.
 - [ ] Run: `pytest tests/services/test_public_repository.py -v`; expect pass.
 - [ ] Commit: `feat: 添加公开仓库只读客户端`
 
@@ -52,6 +54,7 @@
 - [ ] Read public Markdown.
 - [ ] Translate and return preview content plus target path.
 - [ ] Assert response contains no PR URL and performs no GitHub write call.
+- [ ] Enforce the same file count, total size, language, and Markdown path safety limits used by the authorized flow.
 - [ ] Run: `pytest tests/api/test_public_preview.py -v`; expect pass.
 - [ ] Commit: `feat: 添加公开仓库翻译预览接口`
 

@@ -13,6 +13,7 @@
 - Status values: `queued`, `running`, `succeeded`, `failed`.
 - Success result shows PR link and source-target mappings.
 - Failure result shows error code, message, retry guidance.
+- `POST /api/translation-tasks` and `GET /api/translation-tasks/{task_id}` must return the same result schema.
 - PRD source: `docs/prd/github-translator/08-task-status-and-results.md`.
 
 ---
@@ -55,7 +56,28 @@
 **Acceptance:**
 - Failed tasks produce actionable, safe messages.
 
-## Task 3: Frontend Result Component
+## Task 3: Backend Task Status API
+
+**Repo:** `global-backend`
+
+**Files:**
+- Modify: `app/api/tasks.py`
+- Modify: `app/services/task_store.py`
+- Test: `tests/api/test_task_status.py`
+
+**Steps:**
+- [ ] Write failing test for `GET /api/translation-tasks/{task_id}` returning a saved success result.
+- [ ] Write failing test for unknown task returning `task_not_found`.
+- [ ] Read task results from `TaskStore`.
+- [ ] Return the same schema used by `POST /api/translation-tasks`.
+- [ ] Run: `pytest tests/api/test_task_status.py -v`; expect pass.
+- [ ] Commit: `feat: 添加翻译任务状态查询接口`
+
+**Acceptance:**
+- Frontend task page can poll a concrete backend endpoint.
+- Unknown task IDs return a safe, user-readable error.
+
+## Task 4: Frontend Result Component
 
 **Repo:** `global-frontend`
 
@@ -74,7 +96,7 @@
 **Acceptance:**
 - User can see whether to review PR or fix input.
 
-## Task 4: Frontend Task Page
+## Task 5: Frontend Task Page
 
 **Repo:** `global-frontend`
 
@@ -86,14 +108,15 @@
 - [ ] Write failing test that task page renders loading and final result states.
 - [ ] Implement simple polling every 2 seconds for at most 2 minutes.
 - [ ] Render timeout message if task stays unresolved.
-- [ ] Connect to backend task status endpoint when added.
+- [ ] Connect to `GET /api/translation-tasks/{task_id}`.
+- [ ] Treat `task_not_found` as a failed state with a back-to-translate action.
 - [ ] Run: `npm test -- src/app/tasks/[taskId]/page.test.tsx`; expect pass.
 - [ ] Commit: `feat: 添加任务状态页面`
 
 **Acceptance:**
 - Task status is visible after submission.
 
-## Task 5: E2E Result Smoke Test
+## Task 6: E2E Result Smoke Test
 
 **Repo:** `global-frontend`
 
@@ -113,6 +136,6 @@
 ## Verification
 
 ```bash
-pytest tests/domain/test_task_result.py tests/api/test_task_errors.py -v
+pytest tests/domain/test_task_result.py tests/api/test_task_errors.py tests/api/test_task_status.py -v
 npm test -- src/components/TaskResult.test.tsx src/app/tasks/[taskId]/page.test.tsx
 ```

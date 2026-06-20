@@ -13,6 +13,8 @@
 - First version uses synchronous execution with clear timeout and failure states.
 - Task states: `queued`, `running`, `succeeded`, `failed`.
 - Max 10 files and 200KB total source Markdown.
+- Task execution must verify installation authorization immediately before reading files or writing PR branches; frontend-provided repository data is not trusted.
+- The task result must be saved at least in an in-memory repository for first version so the frontend can show a result page and PRD 08 can add polling without changing response shape.
 - PRD source: `docs/prd/github-translator/05-translation-task.md`.
 
 ---
@@ -27,9 +29,10 @@
 
 **Steps:**
 - [ ] Write failing tests for valid request and invalid empty files.
-- [ ] Implement `TranslateTaskRequest`.
+- [ ] Implement `TranslateTaskRequest` with `installation_id`, `repository_full_name`, `base_branch`, `files`, and `language`.
 - [ ] Implement `TranslateTaskResult`.
 - [ ] Implement `TaskStatus` literal values.
+- [ ] Include `task_id`, `created_at`, and `updated_at` fields in results for PRD 08 compatibility.
 - [ ] Run: `pytest tests/domain/test_task.py -v`; expect pass.
 - [ ] Commit: `feat: 添加翻译任务领域模型`
 
@@ -60,17 +63,22 @@
 
 **Files:**
 - Create: `app/services/task_runner.py`
+- Create: `app/services/task_store.py`
 - Test: `tests/services/test_task_runner.py`
+- Test: `tests/services/test_task_store.py`
 
 **Steps:**
 - [ ] Write failing test using fake GitHub client and fake translation provider.
+- [ ] Write failing test proving unauthorized repository errors before any `get_file_content` call.
 - [ ] Implement task validation for language and file limits.
+- [ ] Verify installation authorization against GitHub App repository list immediately before reading files.
 - [ ] Read source file content from GitHub client.
 - [ ] Translate each selected file.
 - [ ] Build source-target file mappings.
+- [ ] Save `running`, `succeeded`, and `failed` results to `TaskStore`.
 - [ ] Return `succeeded` result with PR URL after PR creation.
 - [ ] Return `failed` result with `error_code` and `error_message` on expected app errors.
-- [ ] Run: `pytest tests/services/test_task_runner.py -v`; expect pass.
+- [ ] Run: `pytest tests/services/test_task_runner.py tests/services/test_task_store.py -v`; expect pass.
 - [ ] Commit: `feat: 添加翻译任务执行器`
 
 **Acceptance:**
@@ -87,6 +95,7 @@
 
 **Steps:**
 - [ ] Write failing test for `POST /api/translation-tasks`.
+- [ ] Write failing test that successful submission returns `task_id`.
 - [ ] Validate request body.
 - [ ] Call task runner.
 - [ ] Return task result JSON.
@@ -95,7 +104,7 @@
 - [ ] Commit: `feat: 添加翻译任务接口`
 
 **Acceptance:**
-- Frontend can submit a selected repository, files, and language to create a translation task.
+- Frontend can submit a selected repository, files, and language to create a translation task and receive a stable `task_id`.
 
 ## Task 5: Frontend Translation Workflow Submission
 
@@ -110,7 +119,7 @@
 - [ ] Write failing test for workflow page controls and submit button `创建翻译 PR`.
 - [ ] Compose repository selector, language selector, and file picker.
 - [ ] Submit task payload to `POST /api/translation-tasks`.
-- [ ] Navigate to result page or render result state after response.
+- [ ] Navigate to `/tasks/{task_id}` after successful response.
 - [ ] Disable submit until repository, language, and files are valid.
 - [ ] Run: `npm test -- src/app/translate/page.test.tsx`; expect pass.
 - [ ] Commit: `feat: 添加翻译任务提交页面`
@@ -121,6 +130,6 @@
 ## Verification
 
 ```bash
-pytest tests/domain/test_task.py tests/services/test_task_runner.py tests/api/test_translation_tasks.py -v
+pytest tests/domain/test_task.py tests/services/test_task_runner.py tests/services/test_task_store.py tests/api/test_translation_tasks.py -v
 npm test -- src/app/translate/page.test.tsx
 ```

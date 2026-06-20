@@ -13,6 +13,7 @@
 - Supported first-version languages: `zh-CN`, `zh-TW`, `en`, `ja`, `ko`, `fr`, `de`, `es`.
 - Default language is `zh-CN`.
 - Language suffix is used in generated file path.
+- The language selector must support search because PRD 04 requires searchable language selection.
 - PRD source: `docs/prd/github-translator/04-language-selection.md`.
 
 ---
@@ -81,14 +82,17 @@
 
 **Steps:**
 - [ ] Write failing test for changing target language from `zh-CN` to `ja`.
+- [ ] Write failing test for filtering the language list by typing `Japanese` or `日`.
 - [ ] Implement label `目标语言`.
 - [ ] Display language name and code.
+- [ ] Implement a searchable combobox or input+listbox with keyboard-accessible options.
 - [ ] Emit selected code through `onChange`.
 - [ ] Run: `npm test -- src/components/LanguageSelector.test.tsx`; expect pass.
 - [ ] Commit: `feat: 添加目标语言选择器`
 
 **Acceptance:**
 - User can choose a supported target language and downstream file previews update.
+- User can search by language label or code before selecting.
 
 ## Verification
 

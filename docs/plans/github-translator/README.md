@@ -37,3 +37,16 @@ Before starting implementation from these plans, run in each repo:
 scripts/validate-repository.sh
 git status --short --branch
 ```
+
+## Review Fixes Applied
+
+This plan set was reviewed for execution gaps after PRD decomposition. The current version includes these corrections:
+
+1. PRD 01 now includes a backend `GET /api/github/app/install-url` plan so the frontend does not hard-code GitHub App install URLs.
+2. PRD 03 now requires generated/dependency directory exclusions and file-level disabled reasons instead of silently dropping oversized Markdown files.
+3. PRD 04 now includes searchable language selection, matching the PRD interaction requirement.
+4. PRD 05 now requires a task store and stable `task_id`, so task results can be displayed after submission.
+5. PRD 07 now requires translating every selected file before the first GitHub write, preventing half-finished branches or PRs.
+6. PRD 08 now includes `GET /api/translation-tasks/{task_id}`, giving the frontend task page a concrete polling endpoint.
+7. PRD 09 now requires re-checking authorization inside task execution and calculating size limits from fetched GitHub contents.
+8. PRD 10 now explicitly requires public-preview rate-limit/cache policy and shared safety limits before second-phase launch.

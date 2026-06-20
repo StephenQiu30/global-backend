@@ -12,6 +12,7 @@
 
 - Supported extensions: `.md`, `.markdown`.
 - Exclude generated language variants such as `README.zh-CN.md`.
+- Exclude `.git`, `node_modules`, `dist`, `build`, `.next`, and other generated/dependency directories before evaluating file extensions.
 - Default-select root `README.md`.
 - Single task limits: max 10 files and max 200KB total source Markdown.
 - PRD source: `docs/prd/github-translator/03-markdown-file-discovery.md`.
@@ -48,11 +49,12 @@
 - Test: `tests/services/test_markdown_discovery.py`
 
 **Steps:**
-- [ ] Write failing test with fake GitHub tree containing README, translated README, docs file, and source code file.
+- [ ] Write failing test with fake GitHub tree containing README, translated README, docs file, source code file, `node_modules/pkg/README.md`, `.next/server/page.md`, and `dist/README.md`.
 - [ ] Add `get_repository_tree(installation_id, full_name, branch)`.
-- [ ] Implement discovery service that filters eligible Markdown files.
+- [ ] Implement discovery service that filters eligible Markdown files and rejects excluded directories before extension checks.
 - [ ] Sort README first, then paths alphabetically.
-- [ ] Return `path`, `size_bytes`, `is_default_readme`, `disabled_reason`, `target_path_preview`.
+- [ ] Return `path`, `size_bytes`, `is_default_readme`, `is_translated_variant`, `disabled_reason`, `target_path_preview`, and `target_exists`.
+- [ ] Mark files over the configured size limit with `disabled_reason` instead of silently dropping them.
 - [ ] Run: `pytest tests/services/test_markdown_discovery.py -v`; expect pass.
 - [ ] Commit: `feat: 添加 Markdown 文件扫描服务`
 
@@ -70,6 +72,7 @@
 **Steps:**
 - [ ] Write failing test for `GET /api/repositories/{owner}/{repo}/markdown-files`.
 - [ ] Require `installation_id`.
+- [ ] Accept optional `language` query parameter and default it to `zh-CN` for target path previews.
 - [ ] Verify repository is authorized before scanning.
 - [ ] Return `repository_not_installed` for unauthorized repo.
 - [ ] Run: `pytest tests/api/test_markdown_files_api.py -v`; expect pass.
@@ -94,6 +97,8 @@
 - [ ] Implement file picker with checkbox list, disabled reason, file size, target path preview.
 - [ ] Show selected count and total size.
 - [ ] Prevent selecting more than 10 files in UI.
+- [ ] Disable files with backend `disabled_reason` and show the exact reason inline.
+- [ ] Show `target_exists` as an update warning rather than blocking selection.
 - [ ] Run: `npm test -- src/components/MarkdownFilePicker.test.tsx src/lib/targetPath.test.ts`; expect pass.
 - [ ] Commit: `feat: 添加 Markdown 文件选择界面`
 
