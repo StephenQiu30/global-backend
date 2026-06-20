@@ -16,11 +16,12 @@ BRANCH = "translate/zh-CN/task-001"
 @respx.mock
 def test_put_file_creates_new_file():
     """put_file writes a translated file to the branch with base64 encoding."""
-    client = GitHubAppClient(app_id="1", private_key="fake")
+    client = GitHubAppClient(app_id="1", private_key="fake", token_provider=lambda _: "ghs_test")
 
-    respx.post(
-        "https://api.github.com/app/installations/12345/access_tokens"
-    ).mock(return_value=httpx.Response(200, json={"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"}))
+    # Mock GET for new file (404 = doesn't exist)
+    respx.get(
+        "https://api.github.com/repos/owner/repo/contents/README.zh-CN.md",
+    ).mock(return_value=httpx.Response(404, json={"message": "Not Found"}))
 
     # Mock PUT for new file (no existing SHA)
     route = respx.put(
@@ -41,11 +42,7 @@ def test_put_file_creates_new_file():
 @respx.mock
 def test_put_file_fetches_sha_for_existing_file():
     """put_file fetches existing file SHA before update."""
-    client = GitHubAppClient(app_id="1", private_key="fake")
-
-    respx.post(
-        "https://api.github.com/app/installations/12345/access_tokens"
-    ).mock(return_value=httpx.Response(200, json={"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"}))
+    client = GitHubAppClient(app_id="1", private_key="fake", token_provider=lambda _: "ghs_test")
 
     # Mock GET for existing file
     respx.get(

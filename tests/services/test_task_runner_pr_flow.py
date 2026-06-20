@@ -1,6 +1,6 @@
 """Tests for task runner PR flow: call order and failure atomicity."""
 
-from unittest.mock import MagicMock, call
+from unittest.mock import ANY, MagicMock, call
 
 from app.services.task_runner import TaskRunner
 
@@ -44,8 +44,8 @@ def test_call_order_branch_then_files_then_pr():
     # Verify ordering via call sequence
     github.assert_has_calls([
         call.create_branch(1, "owner/repo", "main", "translate/zh-CN/task-001"),
-        call.put_file(1, "owner/repo", "translate/zh-CN/task-001", "README.zh-CN.md", "# 你好", ...),
-        call.create_pull_request(1, "owner/repo", ..., ..., "translate/zh-CN/task-001", "main"),
+        call.put_file(1, "owner/repo", "translate/zh-CN/task-001", "README.zh-CN.md", "# 你好", ANY),
+        call.create_pull_request(1, "owner/repo", title=ANY, body=ANY, head="translate/zh-CN/task-001", base="main"),
     ], any_order=False)
 
 

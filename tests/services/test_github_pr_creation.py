@@ -13,11 +13,7 @@ FULL_NAME = "owner/repo"
 @respx.mock
 def test_create_pull_request():
     """create_pull_request creates a PR and returns url and number."""
-    client = GitHubAppClient(app_id="1", private_key="fake")
-
-    respx.post(
-        "https://api.github.com/app/installations/12345/access_tokens"
-    ).mock(return_value=httpx.Response(200, json={"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"}))
+    client = GitHubAppClient(app_id="1", private_key="fake", token_provider=lambda _: "ghs_test")
 
     respx.post(
         "https://api.github.com/repos/owner/repo/pulls"
@@ -40,11 +36,7 @@ def test_create_pull_request():
 @respx.mock
 def test_create_pull_request_returns_existing_when_already_open():
     """create_pull_request returns existing PR when 422 (already exists)."""
-    client = GitHubAppClient(app_id="1", private_key="fake")
-
-    respx.post(
-        "https://api.github.com/app/installations/12345/access_tokens"
-    ).mock(return_value=httpx.Response(200, json={"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"}))
+    client = GitHubAppClient(app_id="1", private_key="fake", token_provider=lambda _: "ghs_test")
 
     respx.post(
         "https://api.github.com/repos/owner/repo/pulls"

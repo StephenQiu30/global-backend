@@ -16,12 +16,7 @@ DEFAULT_SHA = "abc123def456"
 @respx.mock
 def test_create_branch_from_default_sha():
     """create_branch fetches default branch SHA and creates a new ref."""
-    client = GitHubAppClient(app_id="1", private_key="fake")
-
-    # Mock installation token
-    respx.post(
-        "https://api.github.com/app/installations/12345/access_tokens"
-    ).mock(return_value=httpx.Response(200, json={"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"}))
+    client = GitHubAppClient(app_id="1", private_key="fake", token_provider=lambda _: "ghs_test")
 
     # Mock get default branch SHA
     respx.get(
@@ -40,11 +35,7 @@ def test_create_branch_from_default_sha():
 @respx.mock
 def test_create_branch_returns_existing_when_ref_exists():
     """create_branch returns existing branch when ref already exists (422)."""
-    client = GitHubAppClient(app_id="1", private_key="fake")
-
-    respx.post(
-        "https://api.github.com/app/installations/12345/access_tokens"
-    ).mock(return_value=httpx.Response(200, json={"token": "ghs_test", "expires_at": "2099-01-01T00:00:00Z"}))
+    client = GitHubAppClient(app_id="1", private_key="fake", token_provider=lambda _: "ghs_test")
 
     respx.get(
         "https://api.github.com/repos/owner/repo/git/ref/heads/main"
