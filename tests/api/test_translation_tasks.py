@@ -132,6 +132,52 @@ class TestTranslationTasksValidation:
         assert response.status_code == 422
 
 
+class TestTranslationTasksLanguageValidation:
+    """Tests for language code validation in translation tasks."""
+
+    def test_unsupported_language_rejected(self, client):
+        response = client.post("/api/translation-tasks", json={
+            "installation_id": "inst-123",
+            "repository": "owner/repo",
+            "base_branch": "main",
+            "files": ["README.md"],
+            "language": "xx",
+        })
+        assert response.status_code == 400
+        data = response.json()
+        assert data["detail"]["error"] == "unsupported_language"
+
+    def test_empty_language_rejected(self, client):
+        response = client.post("/api/translation-tasks", json={
+            "installation_id": "inst-123",
+            "repository": "owner/repo",
+            "base_branch": "main",
+            "files": ["README.md"],
+            "language": "",
+        })
+        assert response.status_code == 422
+
+    def test_similar_language_code_rejected(self, client):
+        response = client.post("/api/translation-tasks", json={
+            "installation_id": "inst-123",
+            "repository": "owner/repo",
+            "base_branch": "main",
+            "files": ["README.md"],
+            "language": "zh",
+        })
+        assert response.status_code == 400
+
+    def test_uppercase_language_rejected(self, client):
+        response = client.post("/api/translation-tasks", json={
+            "installation_id": "inst-123",
+            "repository": "owner/repo",
+            "base_branch": "main",
+            "files": ["README.md"],
+            "language": "ZH-CN",
+        })
+        assert response.status_code == 400
+
+
 class TestTranslationTasksErrors:
     """Tests for task failure responses."""
 
