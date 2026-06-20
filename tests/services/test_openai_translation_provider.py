@@ -4,7 +4,7 @@ Covers: prompt constraints, protect/restore integration.
 Source: PRD 06, OpenSpec REQ-4.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -52,27 +52,29 @@ class TestProtectRestoreIntegration:
     def setup_method(self):
         self.provider = OpenAITranslationProvider(api_key="test-key")
 
+    @pytest.mark.asyncio
     @patch("app.services.translation_provider.openai")
-    def test_translate_protects_code_blocks(self, mock_openai):
+    async def test_translate_protects_code_blocks(self, mock_openai):
         """Code blocks should be protected before sending to API."""
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "翻译后的文本"
-        mock_openai.ChatCompletion.create.return_value = mock_response
+        mock_openai.AsyncChatCompletion.acreate = AsyncMock(return_value=mock_response)
 
         source = "Text\n```\ncode\n```\nMore"
-        result = self.provider.translate(source, "zh-CN")
+        result = await self.provider.translate_markdown(source, "zh-CN")
 
         # The API should have been called with protected text
-        call_args = mock_openai.ChatCompletion.create.call_args
+        call_args = mock_openai.AsyncChatCompletion.acreate.call_args
         messages = call_args[1]["messages"] if "messages" in call_args[1] else call_args[0][0]
         user_message = [m for m in messages if m["role"] == "user"][0]["content"]
         assert "```" not in user_message or "code" not in user_message
 
+    @pytest.mark.asyncio
     @patch("app.services.translation_provider.openai")
     @patch("app.services.translation_provider.protect_markdown")
     @patch("app.services.translation_provider.restore_markdown")
-    def test_translate_restores_placeholders(self, mock_restore, mock_protect, mock_openai):
+    async def test_translate_restores_placeholders(self, mock_restore, mock_protect, mock_openai):
         """Placeholders should be restored after API response."""
         from app.services.markdown_fidelity import ProtectedMarkdown
 
@@ -90,24 +92,25 @@ class TestProtectRestoreIntegration:
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "翻译 __MD_PROTECT_test123__ 文本"
-        mock_openai.ChatCompletion.create.return_value = mock_response
+        mock_openai.AsyncChatCompletion.acreate = AsyncMock(return_value=mock_response)
 
         source = "Text `code` here"
-        result = self.provider.translate(source, "zh-CN")
+        result = await self.provider.translate_markdown(source, "zh-CN")
 
         # The code should be restored
         assert "`code`" in result
 
+    @pytest.mark.asyncio
     @patch("app.services.translation_provider.openai")
-    def test_translate_preserves_urls(self, mock_openai):
+    async def test_translate_preserves_urls(self, mock_openai):
         """URLs should be preserved through the translate cycle."""
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "访问 [链接](https://example.com) 站点"
-        mock_openai.ChatCompletion.create.return_value = mock_response
+        mock_openai.AsyncChatCompletion.acreate = AsyncMock(return_value=mock_response)
 
         source = "Visit [link](https://example.com) site"
-        result = self.provider.translate(source, "zh-CN")
+        result = await self.provider.translate_markdown(source, "zh-CN")
 
         assert "https://example.com" in result
 

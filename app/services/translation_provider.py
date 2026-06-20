@@ -1,10 +1,6 @@
-"""OpenAI translation provider with Markdown fidelity integration.
+"""Translation provider protocol, fake implementation, and OpenAI provider with Markdown fidelity."""
 
-Wraps the protect/restore cycle and enforces Markdown structure constraints
-in the translation prompt.
-
-Source: PRD 06, OpenSpec REQ-4, REQ-5.
-"""
+from typing import Protocol, runtime_checkable
 
 from app.services.markdown_fidelity import protect_markdown, restore_markdown
 
@@ -12,6 +8,40 @@ try:
     import openai
 except ImportError:
     openai = None  # Allow import without openai installed (tests mock it)
+
+
+@runtime_checkable
+class TranslationProvider(Protocol):
+    """Protocol for translation providers."""
+
+    async def translate_markdown(self, source_content: str, target_language: str) -> str:
+        """Translate markdown content to target language.
+
+        Args:
+            source_content: Source markdown content
+            target_language: Target language code
+
+        Returns:
+            Translated markdown content
+        """
+        ...
+
+
+class FakeTranslationProvider:
+    """Fake translation provider for testing."""
+
+    async def translate_markdown(self, source_content: str, target_language: str) -> str:
+        """Return content with language prefix for testing.
+
+        Args:
+            source_content: Source markdown content
+            target_language: Target language code
+
+        Returns:
+            Content prefixed with language tag
+        """
+        return f"[{target_language}] {source_content}"
+
 
 # Required prompt constraints from PRD 06
 _FIDELITY_CONSTRAINTS = """\
@@ -45,7 +75,7 @@ class OpenAITranslationProvider:
             f"Markdown to translate:\n\n{source}"
         )
 
-    def translate(self, source: str, target_language: str) -> str:
+    async def translate_markdown(self, source: str, target_language: str) -> str:
         """Translate Markdown with fidelity protection.
 
         Args:
@@ -65,7 +95,7 @@ class OpenAITranslationProvider:
         prompt = self._build_prompt(protected.text, target_language)
 
         # Step 3: Call OpenAI API
-        response = openai.ChatCompletion.create(
+        response = await openai.AsyncChatCompletion.acreate(
             model=self.model,
             messages=[
                 {"role": "system", "content": "You are a Markdown translator."},
