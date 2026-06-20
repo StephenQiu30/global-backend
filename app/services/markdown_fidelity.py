@@ -16,7 +16,8 @@ PLACEHOLDER_SUFFIX = "__"
 # Combined regex with named groups for single-pass matching.
 # Order matters: longer/more specific patterns first.
 _COMBINED = re.compile(
-    r"(?P<fenced_code_backtick>```[\s\S]*?```)"
+    r"(?P<frontmatter>\A---\n[\s\S]*?\n---\n)"
+    r"|(?P<fenced_code_backtick>```[\s\S]*?```)"
     r"|(?P<fenced_code_tilde>~~~[\s\S]*?~~~)"
     r"|(?P<html_comment><!--[\s\S]*?-->)"
     r"|(?P<inline_code>`[^`\n]+`)"
@@ -62,6 +63,10 @@ def protect_markdown(source: str) -> ProtectedMarkdown:
     placeholders: dict[str, str] = {}
 
     def _replace(match: re.Match) -> str:
+        if match.group("frontmatter") is not None:
+            placeholder = _make_placeholder()
+            placeholders[placeholder] = match.group("frontmatter")
+            return placeholder
         if match.group("fenced_code_backtick") is not None:
             placeholder = _make_placeholder()
             placeholders[placeholder] = match.group("fenced_code_backtick")

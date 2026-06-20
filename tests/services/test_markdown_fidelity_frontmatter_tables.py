@@ -18,8 +18,8 @@ class TestFrontmatterProtection:
     def test_frontmatter_detected(self):
         source = "---\ntitle: Hello\nlang: en\n---\n\nContent here."
         pm = protect_markdown(source)
-        # Frontmatter structure should be preserved
-        assert "---" in pm.text
+        # Frontmatter should be in placeholders (protected)
+        assert any("---" in v for v in pm.placeholders.values())
 
     def test_frontmatter_keys_preserved(self):
         """Frontmatter keys (title, lang) should not be translated."""
