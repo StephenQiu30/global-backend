@@ -11,6 +11,8 @@ from app.domain.markdown_files import (
     is_in_excluded_directory,
     is_translated_variant,
     target_translation_path,
+    MAX_FILE_COUNT,
+    MAX_TOTAL_SIZE,
 )
 from app.services.translation_provider import TranslationProvider
 
@@ -172,6 +174,12 @@ class PublicPreviewService:
         Raises:
             ValueError: For invalid inputs or not-found errors
         """
+        # Validate file count
+        if len(files) > MAX_FILE_COUNT:
+            raise ValueError(
+                f"too many files: {len(files)} exceeds limit of {MAX_FILE_COUNT}"
+            )
+
         # Validate inputs
         for path in files:
             if not is_safe_path(path):
@@ -183,11 +191,17 @@ class PublicPreviewService:
 
         owner, repo = repository.split("/", 1)
         previews: list[FilePreview] = []
+        total_size = 0
 
         for source_path in files:
             content = await self._github.get_file_content(
                 owner, repo, branch, source_path,
             )
+            total_size += len(content.encode("utf-8"))
+            if total_size > MAX_TOTAL_SIZE:
+                raise ValueError(
+                    f"total content size exceeds limit of {MAX_TOTAL_SIZE} bytes"
+                )
             translated = await self._provider.translate_markdown(
                 content, language,
             )

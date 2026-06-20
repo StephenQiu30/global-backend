@@ -130,7 +130,7 @@ class TestPublicPreviewValidation:
 class TestPublicPreviewErrors:
     """Tests for error handling in the API."""
 
-    def test_repository_not_found_returns_404(self):
+    def test_repository_not_found_returns_404_with_error_code(self):
         mock_client = AsyncMock()
         mock_client.get_file_content.side_effect = ValueError("repository not found")
         provider = FakeTranslationProvider()
@@ -146,9 +146,9 @@ class TestPublicPreviewErrors:
 
         assert response.status_code == 404
         data = response.json()
-        assert "not found" in data["detail"].lower()
+        assert data["detail"]["error_code"] == "repository_not_found"
 
-    def test_rate_limited_returns_429(self):
+    def test_rate_limited_returns_429_with_error_code(self):
         mock_client = AsyncMock()
         mock_client.get_file_content.side_effect = ValueError("rate_limited: GitHub API rate limit exceeded")
         provider = FakeTranslationProvider()
@@ -163,8 +163,10 @@ class TestPublicPreviewErrors:
         })
 
         assert response.status_code == 429
+        data = response.json()
+        assert data["detail"]["error_code"] == "rate_limited"
 
-    def test_unsafe_path_returns_400(self):
+    def test_unsafe_path_returns_400_with_error_code(self):
         mock_client = AsyncMock()
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
@@ -177,7 +179,46 @@ class TestPublicPreviewErrors:
             "language": "zh-CN",
         })
 
-        assert response.status_code in (400, 422)
+        assert response.status_code == 400
+        data = response.json()
+        assert data["detail"]["error_code"] == "validation_error"
+
+    def test_too_many_files_returns_422(self):
+        mock_client = AsyncMock()
+        provider = FakeTranslationProvider()
+        service = PublicPreviewService(mock_client, provider)
+        app = _make_app(service)
+        client = TestClient(app)
+        files = [f"file{i}.md" for i in range(11)]
+
+        response = client.post("/api/public-preview", json={
+            "repository": "owner/repo",
+            "files": files,
+            "language": "zh-CN",
+        })
+
+        assert response.status_code == 422
+        data = response.json()
+        assert data["detail"]["error_code"] == "validation_error"
+
+    def test_translation_failure_returns_502(self):
+        mock_client = AsyncMock()
+        mock_client.get_file_content.return_value = "# Content"
+        failing_provider = AsyncMock()
+        failing_provider.translate_markdown.side_effect = RuntimeError("translation provider error")
+        service = PublicPreviewService(mock_client, failing_provider)
+        app = _make_app(service)
+        client = TestClient(app)
+
+        response = client.post("/api/public-preview", json={
+            "repository": "owner/repo",
+            "files": ["README.md"],
+            "language": "zh-CN",
+        })
+
+        assert response.status_code == 502
+        data = response.json()
+        assert data["detail"]["error_code"] == "translation_error"
 
 
 class TestPublicPreviewNoWriteOperations:

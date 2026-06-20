@@ -15,6 +15,20 @@ from app.services.translation_provider import FakeTranslationProvider
 # --- PublicRepositoryClient tests ---
 
 
+def _mock_httpx_get(status_code: int, json_data: dict | None = None):
+    """Create a mock for httpx.AsyncClient that returns a given response."""
+    mock_response = MagicMock()
+    mock_response.status_code = status_code
+    mock_response.json.return_value = json_data or {}
+
+    mock_client = AsyncMock()
+    mock_client.get = AsyncMock(return_value=mock_response)
+    mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+    mock_client.__aexit__ = AsyncMock(return_value=False)
+
+    return mock_client
+
+
 class TestPublicRepositoryListMarkdownFiles:
     """Tests for listing Markdown files in a public repository."""
 
@@ -32,12 +46,9 @@ class TestPublicRepositoryListMarkdownFiles:
                 {"path": ".gitignore", "type": "blob"},
             ]
         }
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = tree_data
-        mock_response.raise_for_status = MagicMock()
+        mock_client = _mock_httpx_get(200, tree_data)
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             files = await client.list_markdown_files("owner", "repo", "main")
 
         assert "README.md" in files
@@ -58,12 +69,9 @@ class TestPublicRepositoryListMarkdownFiles:
                 {"path": "dist/output.md", "type": "blob"},
             ]
         }
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = tree_data
-        mock_response.raise_for_status = MagicMock()
+        mock_client = _mock_httpx_get(200, tree_data)
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             files = await client.list_markdown_files("owner", "repo", "main")
 
         assert "README.md" in files
@@ -80,12 +88,9 @@ class TestPublicRepositoryListMarkdownFiles:
                 {"path": "guide.en.md", "type": "blob"},
             ]
         }
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = tree_data
-        mock_response.raise_for_status = MagicMock()
+        mock_client = _mock_httpx_get(200, tree_data)
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             files = await client.list_markdown_files("owner", "repo", "main")
 
         assert "README.md" in files
@@ -105,15 +110,12 @@ class TestPublicRepositoryGetFileContent:
         encoded = base64.b64encode(content.encode()).decode()
         client = PublicRepositoryClient()
 
-        mock_response = AsyncMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
+        mock_client = _mock_httpx_get(200, {
             "content": encoded,
             "encoding": "base64",
-        }
-        mock_response.raise_for_status = MagicMock()
+        })
 
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             result = await client.get_file_content("owner", "repo", "main", "README.md")
 
         assert result == content
@@ -142,12 +144,9 @@ class TestPublicRepositoryErrors:
     async def test_repository_not_found_raises_value_error(self):
         """404 from GitHub should raise ValueError."""
         client = PublicRepositoryClient()
+        mock_client = _mock_httpx_get(404)
 
-        mock_response = AsyncMock()
-        mock_response.status_code = 404
-        mock_response.raise_for_status.side_effect = Exception("Not Found")
-
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(ValueError, match="not found"):
                 await client.list_markdown_files("owner", "nonexistent", "main")
 
@@ -155,12 +154,9 @@ class TestPublicRepositoryErrors:
     async def test_rate_limited_raises_value_error(self):
         """403 from GitHub should raise ValueError with rate_limited."""
         client = PublicRepositoryClient()
+        mock_client = _mock_httpx_get(403)
 
-        mock_response = AsyncMock()
-        mock_response.status_code = 403
-        mock_response.raise_for_status.side_effect = Exception("Forbidden")
-
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(ValueError, match="rate_limited"):
                 await client.list_markdown_files("owner", "repo", "main")
 
@@ -168,12 +164,9 @@ class TestPublicRepositoryErrors:
     async def test_rate_limited_429_raises_value_error(self):
         """429 from GitHub should also raise ValueError with rate_limited."""
         client = PublicRepositoryClient()
+        mock_client = _mock_httpx_get(429)
 
-        mock_response = AsyncMock()
-        mock_response.status_code = 429
-        mock_response.raise_for_status.side_effect = Exception("Too Many Requests")
-
-        with patch("httpx.AsyncClient.get", return_value=mock_response):
+        with patch("httpx.AsyncClient", return_value=mock_client):
             with pytest.raises(ValueError, match="rate_limited"):
                 await client.list_markdown_files("owner", "repo", "main")
 
@@ -328,6 +321,40 @@ class TestPublicPreviewServiceErrors:
                 repository="owner/repo",
                 branch="main",
                 files=["missing.md"],
+                language="zh-CN",
+            )
+
+    @pytest.mark.asyncio
+    async def test_rejects_too_many_files(self):
+        """File count exceeding MAX_FILE_COUNT should be rejected."""
+        mock_client = AsyncMock()
+        provider = FakeTranslationProvider()
+        service = PublicPreviewService(mock_client, provider)
+        files = [f"file{i}.md" for i in range(11)]
+
+        with pytest.raises(ValueError, match="too many files"):
+            await service.preview(
+                repository="owner/repo",
+                branch="main",
+                files=files,
+                language="zh-CN",
+            )
+
+    @pytest.mark.asyncio
+    async def test_rejects_excessive_total_size(self):
+        """Total content size exceeding MAX_TOTAL_SIZE should be rejected."""
+        mock_client = AsyncMock()
+        # Create content exceeding 200KB
+        large_content = "x" * (200 * 1024 + 1)
+        mock_client.get_file_content.return_value = large_content
+        provider = FakeTranslationProvider()
+        service = PublicPreviewService(mock_client, provider)
+
+        with pytest.raises(ValueError, match="total content size"):
+            await service.preview(
+                repository="owner/repo",
+                branch="main",
+                files=["large.md"],
                 language="zh-CN",
             )
 
