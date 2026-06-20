@@ -34,6 +34,17 @@
 scripts/validate-repository.sh
 ```
 
+## GitHub Markdown Translator
+
+本仓库包含 GitHub Markdown Translator 的后端实现。产品目标是通过 GitHub App 读取仓库 Markdown 文件，调用翻译模型生成同目录语言后缀文件，并通过 Pull Request 提交回 GitHub。
+
+- PRD 入口：[`docs/prd/github-translator/README.md`](docs/prd/github-translator/README.md)
+- Plan 入口：[`docs/plans/github-translator/README.md`](docs/plans/github-translator/README.md)
+
+首版范围（PRD 01-09）：GitHub App 安装、仓库授权、文件发现、语言选择、翻译任务、Markdown 保真、PR 提交、任务状态、安全与权限。
+
+二期范围（PRD 10）：公开仓库只读预览，首版 GitHub App 流程完成后再启动。
+
 ## 规范来源
 
 本规范骨架来自 `StephenQiu30/stephen-cladue`，并已按 `global-backend`
