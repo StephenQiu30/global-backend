@@ -126,7 +126,7 @@ class TaskRunner:
             TaskResult with status, mappings, or error info
         """
         task.status = TaskStatus.RUNNING
-        branch_name = f"translate/{task.language}/{task.id}"
+        branch_name = f"translate/{task.language}/{task.task_id}"
 
         # Phase 1: Translate all files in memory
         translated: list[dict[str, str]] = []
@@ -187,7 +187,7 @@ class TaskRunner:
                     language=task.language,
                     mappings=pr_mappings,
                     provider_name="unknown",
-                    task_id=task.id,
+                    task_id=task.task_id,
                 )
                 pr = self._write_client.create_pull_request(
                     task.installation_id,

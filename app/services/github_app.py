@@ -1,8 +1,9 @@
-"""GitHub App client for branch, file, and PR operations."""
+"""GitHub App client for installation, repository, and write operations."""
 
 import base64
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -13,8 +14,23 @@ from app.core.errors import AppError
 GITHUB_API = "https://api.github.com"
 
 
+@dataclass
+class InstallationInfo:
+    installation_id: int
+    account_login: str
+    account_type: str
+    repository_selection: str
+
+
+@dataclass
+class RepositoryInfo:
+    full_name: str
+    default_branch: str
+    private: bool
+
+
 class GitHubAppClient:
-    """Synchronous GitHub App REST client."""
+    """Synchronous GitHub App REST client for installation and write operations."""
 
     def __init__(
         self,
@@ -61,6 +77,62 @@ class GitHubAppClient:
             "Authorization": f"token {token}",
             "Accept": "application/vnd.github+json",
         }
+
+    # --- Installation / Repository operations ---
+
+    def get_installation(self, installation_id: int) -> InstallationInfo:
+        """Get installation info by ID."""
+        token = self._get_token(installation_id)
+        headers = self._headers(token)
+
+        resp = httpx.get(
+            f"{GITHUB_API}/app/installations/{installation_id}",
+            headers=headers,
+        )
+        if resp.status_code == 404:
+            raise ValueError(f"Installation {installation_id} not found")
+        resp.raise_for_status()
+
+        data = resp.json()
+        return InstallationInfo(
+            installation_id=data["id"],
+            account_login=data["account"]["login"],
+            account_type=data["account"]["type"],
+            repository_selection=data["repository_selection"],
+        )
+
+    def get_installation_repos(self, installation_id: int) -> list[RepositoryInfo]:
+        """List repositories accessible to an installation."""
+        token = self._get_token(installation_id)
+        headers = self._headers(token)
+
+        resp = httpx.get(
+            f"{GITHUB_API}/installation/repositories",
+            headers=headers,
+        )
+        if resp.status_code == 404:
+            raise ValueError(f"Installation {installation_id} not found")
+        resp.raise_for_status()
+
+        data = resp.json()
+        return [
+            RepositoryInfo(
+                full_name=repo["full_name"],
+                default_branch=repo["default_branch"],
+                private=repo["private"],
+            )
+            for repo in data.get("repositories", [])
+        ]
+
+    def is_repository_authorized(
+        self, installation_id: int, full_name: str
+    ) -> bool:
+        """Check if a repository is authorized for an installation."""
+        repos = self.get_installation_repos(installation_id)
+        normalized_target = full_name.lower()
+        return any(repo.full_name.lower() == normalized_target for repo in repos)
+
+    # --- Write operations (branch, file, PR) ---
 
     def create_branch(
         self,
