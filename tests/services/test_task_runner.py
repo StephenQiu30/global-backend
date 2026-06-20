@@ -119,3 +119,17 @@ class TestTaskRunnerErrors:
         assert result.status == TaskStatus.FAILED
         assert "SECRET_KEY" not in (result.error_message or "")
         assert "abc123" not in (result.error_message or "")
+
+    @pytest.mark.asyncio
+    async def test_unknown_error_fallback(self):
+        fake_github = AsyncMock()
+        fake_github.get_file_content.side_effect = Exception("timeout")
+        provider = FakeTranslationProvider()
+        runner = TaskRunner(provider, fake_github)
+
+        task = make_task()
+        result = await runner.run(task)
+
+        assert result.status == TaskStatus.FAILED
+        assert result.error_code == "unknown_error"
+        assert result.error_message == "An unexpected error occurred"

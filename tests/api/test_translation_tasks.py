@@ -112,6 +112,25 @@ class TestTranslationTasksValidation:
         })
         assert response.status_code == 422
 
+    def test_missing_base_branch(self, client):
+        response = client.post("/api/translation-tasks", json={
+            "installation_id": "inst-123",
+            "repository": "owner/repo",
+            "files": ["README.md"],
+            "language": "zh-CN",
+        })
+        assert response.status_code == 422
+
+    def test_empty_installation_id(self, client):
+        response = client.post("/api/translation-tasks", json={
+            "installation_id": "",
+            "repository": "owner/repo",
+            "base_branch": "main",
+            "files": ["README.md"],
+            "language": "zh-CN",
+        })
+        assert response.status_code == 422
+
 
 class TestTranslationTasksErrors:
     """Tests for task failure responses."""

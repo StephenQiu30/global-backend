@@ -11,6 +11,11 @@ class TestTranslationProviderProtocol:
         """TranslationProvider protocol must define translate_markdown."""
         assert hasattr(TranslationProvider, 'translate_markdown')
 
+    def test_fake_provider_conforms_to_protocol(self):
+        """FakeTranslationProvider must satisfy the TranslationProvider protocol."""
+        provider = FakeTranslationProvider()
+        assert isinstance(provider, TranslationProvider)
+
 
 class TestFakeTranslationProvider:
     """Tests for FakeTranslationProvider."""
