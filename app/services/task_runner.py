@@ -2,6 +2,8 @@
 
 from typing import Any, Protocol
 
+from app.services.pr_description import build_translation_pr_body
+
 
 class GitHubClientProtocol(Protocol):
     def create_branch(self, installation_id: int, full_name: str, base_branch: str, branch_name: str) -> str: ...
@@ -39,6 +41,8 @@ class TaskRunner:
         files: list[str],
         language: str,
         task_id: str,
+        *,
+        provider_name: str = "unknown",
     ) -> dict[str, Any]:
         """Run translation task. Returns result dict with 'status' key."""
         branch_name = f"translate/{language}/{task_id}"
@@ -58,30 +62,42 @@ class TaskRunner:
             return {"status": "failed", "error": str(exc)}
 
         # Phase 2: GitHub writes (only if all translations succeeded)
-        self._github.create_branch(
-            installation_id, repository_full_name, base_branch, branch_name
-        )
-
-        for item in translated:
-            self._github.put_file(
-                installation_id,
-                repository_full_name,
-                branch_name,
-                item["target"],
-                item["content"],
-                f"add {language} translation for {item['source']}",
+        try:
+            self._github.create_branch(
+                installation_id, repository_full_name, base_branch, branch_name
             )
 
-        pr_title = f"docs: add {language} translation for Markdown docs"
-        pr_body = f"Auto-translated {len(translated)} files to {language}. Task: {task_id}"
-        pr = self._github.create_pull_request(
-            installation_id,
-            repository_full_name,
-            title=pr_title,
-            body=pr_body,
-            head=branch_name,
-            base=base_branch,
-        )
+            for item in translated:
+                self._github.put_file(
+                    installation_id,
+                    repository_full_name,
+                    branch_name,
+                    item["target"],
+                    item["content"],
+                    f"add {language} translation for {item['source']}",
+                )
+
+            mappings = [
+                {"source": item["source"], "target": item["target"]}
+                for item in translated
+            ]
+            pr_title = f"docs: add {language} translation for Markdown docs"
+            pr_body = build_translation_pr_body(
+                language=language,
+                mappings=mappings,
+                provider_name=provider_name,
+                task_id=task_id,
+            )
+            pr = self._github.create_pull_request(
+                installation_id,
+                repository_full_name,
+                title=pr_title,
+                body=pr_body,
+                head=branch_name,
+                base=base_branch,
+            )
+        except Exception as exc:
+            return {"status": "failed", "error": str(exc)}
 
         return {
             "status": "succeeded",
