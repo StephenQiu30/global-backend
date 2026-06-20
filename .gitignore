@@ -16,9 +16,11 @@ temp/
 .env
 .env.*
 !.env.example
+
 __pycache__/
 .symphony-claude-prompt.*
 *.pyc
 *.pyo
 .venv/
+*.egg-info/
 .pytest_cache/

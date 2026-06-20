@@ -1,18 +1,13 @@
-"""Application configuration."""
+"""Application configuration loaded from environment variables."""
 
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """GitHub App and application settings."""
 
-    github_app_id: int
-    github_app_private_key: str
-    github_app_webhook_secret: str
+    github_app_id: str = ""
+    github_private_key: str = ""
+    github_webhook_secret: str = ""
 
-    model_config = {"env_prefix": "", "env_file": ".env", "env_file_encoding": "utf-8"}
-
-
-def get_settings() -> Settings:
-    """Get application settings instance."""
-    return Settings()
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
