@@ -1,32 +1,78 @@
 """API endpoints for repository operations."""
 
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
+from app.api.installations import get_github_client
 from app.domain.markdown_files import validate_selection
+from app.domain.repository import parse_repository_input
 from app.services.markdown_discovery import discover_markdown_files, MarkdownFileInfo
 
 router = APIRouter(prefix="/api/repositories", tags=["repositories"])
 
 
-async def verify_repository_authorization(installation_id: str, owner: str, repo: str) -> bool:
-    """Verify repository is authorized for the installation.
+class ResolveRequest(BaseModel):
+    """Request body for repository resolve."""
 
-    This is a placeholder that will be replaced with actual GitHub API
-    verification when GithubAppService is available (after STE-322 merge).
+    input: str
+    installation_id: int
 
-    Args:
-        installation_id: GitHub App installation ID
-        owner: Repository owner
-        repo: Repository name
 
-    Returns:
-        True if authorized, False otherwise
+class ResolveResponse(BaseModel):
+    """Response body for successful repository resolve."""
+
+    full_name: str
+    default_branch: str
+    private: bool
+
+
+class ErrorResponse(BaseModel):
+    """Response body for errors."""
+
+    error: str
+
+
+@router.post(
+    "/resolve",
+    response_model=ResolveResponse,
+    responses={
+        400: {"model": ErrorResponse},
+        403: {"model": ErrorResponse},
+    },
+)
+def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
+    """Parse and verify repository authorization.
+
+    Parses the repository input, then checks if the repository
+    is authorized for the given GitHub App installation.
     """
-    # TODO: Replace with actual GithubAppService.is_repository_authorized call
-    # when STE-322 is merged. For now, check that installation_id is provided.
-    return bool(installation_id)
+    try:
+        ref = parse_repository_input(request.input)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid_repository_url"},
+        )
+
+    client = get_github_client()
+    is_authorized = client.is_repository_authorized(
+        installation_id=request.installation_id,
+        full_name=ref.full_name,
+    )
+
+    if not is_authorized:
+        raise HTTPException(
+            status_code=403,
+            detail={"error": "repository_not_installed"},
+        )
+
+    return {
+        "full_name": ref.full_name,
+        "default_branch": "main",
+        "private": True,
+    }
 
 
 @router.get("/{owner}/{repo}/markdown-files")
@@ -51,7 +97,13 @@ async def get_markdown_files(
         HTTPException: If repository is not authorized or selection limits exceeded
     """
     # Verify repository authorization
-    if not await verify_repository_authorization(installation_id, owner, repo):
+    client = get_github_client()
+    is_authorized = client.is_repository_authorized(
+        installation_id=int(installation_id) if installation_id else 0,
+        full_name=f"{owner}/{repo}",
+    )
+
+    if not is_authorized:
         raise HTTPException(
             status_code=404,
             detail={"error": "repository_not_installed", "message": "Repository is not authorized"}
