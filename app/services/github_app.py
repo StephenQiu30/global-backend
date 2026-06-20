@@ -1,52 +1,67 @@
-from typing import Any
+from dataclasses import dataclass
 
-import httpx
+from github import GithubException
+from github.Auth import AppAuth
+from github.GithubIntegration import GithubIntegration
 
 
-class GithubAppService:
-    """Service for interacting with GitHub App API."""
+@dataclass
+class InstallationInfo:
+    installation_id: int
+    account_login: str
+    account_type: str
+    repository_selection: str
 
-    GITHUB_API_BASE = "https://api.github.com"
 
-    async def get_installation_repositories(
-        self, installation_id: int
-    ) -> list[dict[str, Any]]:
-        """Get repositories authorized for an installation."""
-        response = await self._make_request(
-            "GET",
-            f"/installation/repositories",
-            installation_id=installation_id,
-        )
-        return response.get("repositories", [])
+@dataclass
+class RepositoryInfo:
+    full_name: str
+    default_branch: str
+    private: bool
 
-    async def is_repository_authorized(
+
+class GitHubAppClient:
+    def __init__(self, app_id: int, private_key: str):
+        self._app_id = app_id
+        self._private_key = private_key
+        self._auth = AppAuth(app_id, private_key)
+        self._integration = GithubIntegration(auth=self._auth)
+
+    def get_installation(self, installation_id: int) -> InstallationInfo:
+        try:
+            installation = self._integration.get_app_installation(installation_id)
+            return InstallationInfo(
+                installation_id=installation.id,
+                account_login=installation.account.login,
+                account_type=installation.account.type,
+                repository_selection=installation.repository_selection,
+            )
+        except GithubException as e:
+            if e.status == 404:
+                raise ValueError(f"Installation {installation_id} not found") from e
+            raise RuntimeError(f"GitHub API error: {e}") from e
+
+    def get_installation_repos(self, installation_id: int) -> list[RepositoryInfo]:
+        try:
+            installation = self._integration.get_app_installation(installation_id)
+            repos = installation.get_repos()
+            return [
+                RepositoryInfo(
+                    full_name=repo.full_name,
+                    default_branch=repo.default_branch,
+                    private=repo.private,
+                )
+                for repo in repos
+            ]
+        except GithubException as e:
+            if e.status == 404:
+                raise ValueError(f"Installation {installation_id} not found") from e
+            raise RuntimeError(f"GitHub API error: {e}") from e
+
+    def is_repository_authorized(
         self, installation_id: int, full_name: str
     ) -> bool:
         """Check if a repository is authorized for an installation."""
-        repos = await self.get_installation_repositories(installation_id)
+        repos = self.get_installation_repos(installation_id)
         normalized_target = full_name.lower()
-        return any(repo["full_name"].lower() == normalized_target for repo in repos)
-
-    async def _make_request(
-        self,
-        method: str,
-        path: str,
-        installation_id: int,
-    ) -> dict[str, Any]:
-        """Make an authenticated request to GitHub API.
-
-        In production, this would create a JWT and installation token.
-        For testing, this method is mocked.
-        """
-        # This is a placeholder - real implementation would use JWT auth
-        async with httpx.AsyncClient() as client:
-            response = await client.request(
-                method,
-                f"{self.GITHUB_API_BASE}{path}",
-                headers={
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
-            )
-            response.raise_for_status()
-            return response.json()
+        return any(repo.full_name.lower() == normalized_target for repo in repos)

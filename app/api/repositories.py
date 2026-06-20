@@ -5,12 +5,10 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.api.installations import get_github_client
 from app.domain.repository import parse_repository_input
-from app.services.github_app import GithubAppService
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
-
-github_service = GithubAppService()
 
 
 class ResolveRequest(BaseModel):
@@ -42,7 +40,7 @@ class ErrorResponse(BaseModel):
         403: {"model": ErrorResponse},
     },
 )
-async def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
+def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
     """Parse and verify repository authorization.
 
     Parses the repository input, then checks if the repository
@@ -56,7 +54,8 @@ async def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
             detail={"error": "invalid_repository_url"},
         )
 
-    is_authorized = await github_service.is_repository_authorized(
+    client = get_github_client()
+    is_authorized = client.is_repository_authorized(
         installation_id=request.installation_id,
         full_name=ref.full_name,
     )

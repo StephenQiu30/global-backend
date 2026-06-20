@@ -1,19 +1,11 @@
 from fastapi import FastAPI
 
+from app.api.installations import router as installations_router
 from app.api.repositories import router as repositories_router
 
 
 def create_app() -> FastAPI:
-    """Create and configure the FastAPI application."""
-    app = FastAPI(
-        title="GitHub Markdown Translator",
-        description="Backend API for GitHub Markdown translation",
-        version="0.1.0",
-    )
-
+    app = FastAPI(title="global-backend", version="0.1.0")
+    app.include_router(installations_router, prefix="/api/github")
     app.include_router(repositories_router, prefix="/api")
-
     return app
-
-
-app = create_app()

@@ -1,15 +1,6 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
-
-from app.main import app
-
-
-@pytest.fixture
-def client():
-    """Create test client."""
-    return TestClient(app)
 
 
 class TestRepositoryResolve:
@@ -18,10 +9,10 @@ class TestRepositoryResolve:
     def test_resolve_authorized_repository(self, client):
         """Resolve authorized repository successfully."""
         with patch(
-            "app.api.repositories.github_service.is_repository_authorized",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
+            "app.api.repositories.get_github_client"
+        ) as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = True
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "owner/repo", "installation_id": 12345},
@@ -35,10 +26,10 @@ class TestRepositoryResolve:
     def test_resolve_unauthorized_repository(self, client):
         """Reject unauthorized repository."""
         with patch(
-            "app.api.repositories.github_service.is_repository_authorized",
-            new_callable=AsyncMock,
-            return_value=False,
-        ):
+            "app.api.repositories.get_github_client"
+        ) as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = False
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "owner/repo", "installation_id": 12345},
@@ -78,10 +69,10 @@ class TestRepositoryResolve:
     def test_resolve_full_https_url(self, client):
         """Resolve full HTTPS URL."""
         with patch(
-            "app.api.repositories.github_service.is_repository_authorized",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
+            "app.api.repositories.get_github_client"
+        ) as mock_get_client:
+            mock_client = mock_get_client.return_value
+            mock_client.is_repository_authorized.return_value = True
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "https://github.com/owner/repo", "installation_id": 12345},
