@@ -1,0 +1,19 @@
+# GitHub 仓库 About 信息（本地源文件）
+# 更新后可用 scripts/sync-github-metadata.sh 同步到 GitHub
+
+name: global-backend
+description: >
+  GitHub Markdown Translator 后端：通过 GitHub App 扫描仓库 Markdown、
+  调用翻译模型生成语言后缀文件，并以 Pull Request 提交回 GitHub；
+  支持公开仓库只读预览。
+homepage: ""
+topics:
+  - backend
+  - fastapi
+  - github-app
+  - markdown
+  - translation
+  - i18n
+  - python
+  - openspec
+  - tdd

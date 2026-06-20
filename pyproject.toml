@@ -1,8 +1,10 @@
 [project]
 name = "global-backend"
 version = "0.1.0"
-description = "GitHub Markdown Translator Backend"
+description = "GitHub Markdown Translator 后端：GitHub App 驱动的 Markdown 翻译与 PR 提交服务"
+readme = "README.md"
 requires-python = ">=3.12"
+keywords = ["github-app", "markdown", "translation", "fastapi", "i18n"]
 dependencies = [
     "fastapi>=0.115.0",
     "httpx>=0.27.0",
