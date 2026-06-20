@@ -3,9 +3,9 @@
 ## Status
 
 - [x] Proposed
-- [ ] Accepted
-- [ ] Implemented
-- [ ] Verified
+- [x] Accepted
+- [x] Implemented
+- [x] Verified
 - [ ] Archived
 
 ## Summary
