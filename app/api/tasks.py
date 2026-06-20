@@ -2,9 +2,10 @@
 
 from typing import List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.domain.languages import validate_language_code
 from app.domain.task import TaskResult
 from app.services.task_runner import TaskRunner
 
@@ -40,6 +41,12 @@ async def create_translation_task(
     Returns:
         TaskResult with status, PR info, or error details
     """
+    if not validate_language_code(request.language):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "unsupported_language", "message": f"Language '{request.language}' is not supported"},
+        )
+
     from app.domain.task import Task
 
     task = Task(
