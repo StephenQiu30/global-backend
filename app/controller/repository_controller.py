@@ -31,12 +31,12 @@ def resolve_repository(request: ResolveRepositoryRequest) -> ApiResponseVO[Resol
     """Parse and verify repository authorization."""
     try:
         ref = parse_repository_input(request.input)
-    except ValueError:
+    except ValueError as err:
         raise AppException(
             code=ErrorCode.VALIDATION_ERROR,
             message="Invalid repository URL",
             http_status=400,
-        )
+        ) from err
 
     client = get_github_client()
     is_authorized = client.is_repository_authorized(
@@ -82,7 +82,14 @@ async def get_markdown_files(
             http_status=404,
         )
 
-    parsed_installation_id = int(request.installation_id)
+    try:
+        parsed_installation_id = int(request.installation_id)
+    except ValueError as err:
+        raise AppException(
+            code=ErrorCode.VALIDATION_ERROR,
+            message="Invalid installation_id",
+            http_status=422,
+        ) from err
 
     client = get_github_client()
     is_authorized = client.is_repository_authorized(

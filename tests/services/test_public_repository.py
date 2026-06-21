@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.services.public_repository import (
     PublicRepositoryClient,
     PublicPreviewService,
@@ -314,7 +315,7 @@ class TestPublicPreviewServiceErrors:
         """File read errors should propagate."""
         mock_client = AsyncMock()
         mock_client.get_file_content.side_effect = AppException(
-            code="REPOSITORY_NOT_FOUND",
+            code=ErrorCode.REPOSITORY_NOT_FOUND,
             message="file not found",
             http_status=404,
         )
