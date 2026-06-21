@@ -6,9 +6,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.errors import AppError
-from app.domain.languages import validate_language_code
-from app.domain.task import TaskResult
-from app.services.task_runner import TaskRunner
+from app.dto.translation_task_dto import TranslationTaskCreateDTO
+from app.vo.translation_task_vo import (
+    TaskNotFoundVO,
+    TranslationTaskCreateVO,
+    TranslationTaskStatusVO,
+    FilePreviewVO,
+)
 
 router = APIRouter()
 
@@ -56,6 +60,7 @@ def map_error_to_response(error: Exception) -> HTTPException:
     )
 
 
+# Legacy request model kept for backward compatibility.
 class TranslationTaskRequest(BaseModel):
     """Request model for POST /api/translation-tasks."""
 
@@ -66,39 +71,105 @@ class TranslationTaskRequest(BaseModel):
     language: str = Field(..., min_length=1)
 
 
-def _get_task_runner() -> TaskRunner:
-    """Dependency to get TaskRunner. Override in app factory."""
-    raise NotImplementedError("TaskRunner not configured")
+def _get_task_service():
+    """Dependency to get TranslationTaskService. Override in app factory."""
+    raise NotImplementedError("TranslationTaskService not configured")
 
 
-@router.post("/translation-tasks", response_model=TaskResult)
+@router.post(
+    "/translation-tasks",
+    response_model=TranslationTaskCreateVO,
+    status_code=201,
+)
 async def create_translation_task(
-    request: TranslationTaskRequest,
-    task_runner: TaskRunner = Depends(_get_task_runner),
-) -> TaskResult:
-    """Create and execute a translation task synchronously.
+    request: TranslationTaskCreateDTO,
+    task_service=Depends(_get_task_service),
+) -> TranslationTaskCreateVO:
+    """Create a translation task and enqueue for async execution.
 
     Args:
-        request: Translation task request
-        task_runner: Task runner service
+        request: Translation task creation request DTO.
+        task_service: TranslationTaskService dependency.
 
     Returns:
-        TaskResult with status, PR info, or error details
+        TranslationTaskCreateVO with task_id and queued status.
+
+    Raises:
+        HTTPException: 400 for unsupported language, 422 for validation errors.
     """
-    if not validate_language_code(request.language):
+    try:
+        return await task_service.create_task(
+            installation_id=request.installation_id,
+            repository=request.repository,
+            base_branch=request.base_branch,
+            files=request.files,
+            language=request.language,
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail={"error": "unsupported_language", "message": f"Language '{request.language}' is not supported"},
+            detail={
+                "error": "unsupported_language",
+                "message": str(exc),
+            },
         )
 
-    from app.domain.task import Task
 
-    task = Task(
-        task_id="generated",
-        installation_id=request.installation_id,
-        repository=request.repository,
-        base_branch=request.base_branch,
-        files=request.files,
-        language=request.language,
-    )
-    return await task_runner.run(task)
+@router.get(
+    "/translation-tasks/{task_id}",
+    response_model=TranslationTaskStatusVO,
+    responses={404: {"model": TaskNotFoundVO}},
+)
+async def get_task_status(
+    task_id: str,
+    task_service=Depends(_get_task_service),
+) -> TranslationTaskStatusVO:
+    """Retrieve persisted translation task status.
+
+    Args:
+        task_id: The translation task identifier.
+        task_service: TranslationTaskService dependency.
+
+    Returns:
+        TranslationTaskStatusVO with task status and result.
+
+    Raises:
+        HTTPException: 404 if task not found.
+    """
+    result = await task_service.get_task_status(task_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "task_not_found", "message": f"Task '{task_id}' not found"},
+        )
+    return result
+
+
+@router.get(
+    "/translation-tasks/{task_id}/file-previews",
+    response_model=List[FilePreviewVO],
+    responses={404: {"model": TaskNotFoundVO}},
+)
+async def get_file_previews(
+    task_id: str,
+    task_service=Depends(_get_task_service),
+) -> List[FilePreviewVO]:
+    """Retrieve translated file preview metadata for a task.
+
+    Args:
+        task_id: The translation task identifier.
+        task_service: TranslationTaskService dependency.
+
+    Returns:
+        List of FilePreviewVO with file preview metadata.
+
+    Raises:
+        HTTPException: 404 if task not found.
+    """
+    result = await task_service.get_file_previews(task_id)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "task_not_found", "message": f"Task '{task_id}' not found"},
+        )
+    return result
