@@ -1,5 +1,6 @@
 import pytest
 from pydantic import ValidationError
+from pathlib import Path
 
 
 def test_settings_loads_from_env(monkeypatch):
@@ -14,6 +15,16 @@ def test_settings_loads_from_env(monkeypatch):
     assert settings.github_app_id == "12345"
     assert settings.github_private_key == "test-key"
     assert settings.github_webhook_secret == "test-secret"
+
+
+def test_settings_uses_repo_root_env_file_by_default():
+    """Settings must load `.env` from the repository root, independent of cwd."""
+    from app.core.config import Settings
+
+    env_file = Path(Settings.model_config["env_file"])
+
+    assert env_file.is_absolute()
+    assert env_file == Path(__file__).resolve().parents[1] / ".env"
 
 
 def test_settings_allows_unrelated_env_vars(monkeypatch):

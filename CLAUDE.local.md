@@ -22,7 +22,10 @@
 ```bash
 # 安装与启动
 pip install -e ".[dev]"
-uvicorn app.main:app --reload --port 8000
+python -m app
+
+# Docker 一体化启动
+docker compose up --build
 
 # 测试与校验
 pytest tests/ -v
@@ -34,7 +37,8 @@ scripts/sync-github-metadata.sh
 
 ## 关键路径
 
-- 应用入口：`app/main.py`
+- 应用进程入口：`app/runner.py`（通过 `python -m app` 启动）
+- FastAPI 应用工厂：`app/main.py`
 - 配置：`app/core/config.py`、`.env`
 - PRD：`docs/prd/github-translator/`
 - 本地开发说明：`docs/operations/local-development.md`
