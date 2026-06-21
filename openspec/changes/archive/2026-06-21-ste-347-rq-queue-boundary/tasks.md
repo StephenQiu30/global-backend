@@ -10,7 +10,7 @@
 - [x] 8. 编写 worker job 测试（红灯）
 - [x] 9. 实现 worker job（绿灯）
 - [x] 10. 运行完整测试套件验证
-- [ ] 11. 更新 OpenSpec 任务状态
+- [x] 11. 更新 OpenSpec 任务状态
 
 ## Commit Plan
 
