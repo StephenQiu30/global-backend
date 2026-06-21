@@ -125,9 +125,10 @@ Follow `.claude/skills/harness-quality-gate/SKILL.md` as the master checklist. I
 Mandatory Superpowers skills by phase:
 
 - Session / planning: `using-superpowers`, `writing-plans`
-- OpenSpec / SDD: `openspec-new-change`, `openspec-apply-change`, `openspec-verify-change`, and when continuing existing work `openspec-continue-change`
+- OpenSpec / SDD: `openspec-new-change`, `openspec-apply-change`, `openspec-verify-change`, `openspec-archive-change`, and when continuing existing work `openspec-continue-change`
 - Red → green: `test-driven-development` (must align with `test:` then `impl:`/`feat:` commits)
 - Implementation: `executing-plans`; use `systematic-debugging` when blocked on failures
+- Agent Review: `receiving-code-review` before accepting, rejecting, or acting on review findings
 - Runtime / E2E: `agent-browser`, `harness-local-server`, `harness-playwright-evidence` when UI or app-touching
 - Handoff: `verification-before-completion`, `requesting-code-review`
 
@@ -169,7 +170,7 @@ Allowed commit types are fixed: `test:`, `docs:`, `impl:`, `chore:`, `feat:`, an
 - `In Progress` -> implementation actively underway.
 - `Agent Review` -> PR is ready for an agent to review. If issues are found, move to Rework, otherwise move to Human Review.
 - `Human Review` -> PR is attached and validated; waiting on human approval.
-- `Merging` -> approved by human; execute the `land` skill flow (do not call `gh pr merge` directly).
+- `Merging` -> approved by human; create and push the pre-merge annotated tag, then execute the `land` skill flow (do not call `gh pr merge` directly).
 - `Rework` -> reviewer requested changes; planning + implementation required.
 - `Blocked` -> waiting on a true external dependency; do not modify until a human unblocks or moves it back to `Todo`/`Rework`.
 - `Done` -> terminal state; no further action required.
@@ -185,7 +186,7 @@ Allowed commit types are fixed: `test:`, `docs:`, `impl:`, `chore:`, `feat:`, an
    - `In Progress` -> continue execution flow from current scratchpad comment and current OpenSpec change artifacts.
    - `Agent Review` -> run the `code-review` skill. Review the PR, workpad checklist, and the linked OpenSpec proposal/specs/design/tasks against the implementation. Also confirm the relevant OpenSpec change has passed verification and been archived. If issues are found, leave comments, restore the developer's `agent:*` label, and move to `Rework`. If approved and archived, move to `Human Review`.
    - `Human Review` -> wait and poll for decision/review updates.
-   - `Merging` -> on entry, open and follow `.claude/skills/land/SKILL.md`; do not call `gh pr merge` directly.
+   - `Merging` -> on entry, open and follow `.claude/skills/land/SKILL.md`; before merge, create and push a pre-merge annotated tag for the exact commit being landed. Do not call `gh pr merge` directly.
    - `Rework` -> run rework flow on the same OpenSpec loop unless the prior change is explicitly abandoned and replaced.
    - `Blocked` -> stop; leave the workpad blocker brief intact and wait for a human to unblock or move it back to an active state.
    - `Done` -> do nothing and shut down.
@@ -222,10 +223,11 @@ Allowed commit types are fixed: `test:`, `docs:`, `impl:`, `chore:`, `feat:`, an
     - If the ticket description/comment context includes `Validation`, `Test Plan`, or `Testing` sections, copy those requirements into the workpad `Acceptance Criteria` and `Validation` sections as required checkboxes (no optional downgrade).
 7.  Add a `Test-first Evidence` section to the workpad that names the failing test, acceptance script, or executable validation that will prove the change.
 8.  Open and follow `.claude/skills/openspec-new-change/SKILL.md` or `.claude/skills/openspec-continue-change/SKILL.md` first, then `.claude/skills/writing-plans/SKILL.md` and `.claude/skills/using-superpowers/SKILL.md`; refine the workpad plan from their output and link the OpenSpec artifacts in the workpad.
-9.  Run a principal-style self-review of the plan and refine it in the comment.
-10. Before implementing, capture a concrete reproduction signal and record it in the workpad `Notes` section (command/output, screenshot, or deterministic UI behavior).
-11. Open and follow `.claude/skills/test-driven-development/SKILL.md`: run the selected test/validation and record the expected red/failing result. If the task is docs-only or cannot have a red test, record the explicit reason and the executable validation that will replace it. The red/green evidence must map back to the active OpenSpec tasks.
-12. Run the `pull` skill to sync with latest `origin/main` before any code edits, then record the pull/sync result in the workpad `Notes`.
+9.  Standard SDD gate: clarify the spec before implementation. Do not code from issue prose alone; ensure the OpenSpec proposal/specs/design/tasks define expected behavior, scope boundaries, validation, and non-goals clearly enough to drive development.
+10. Run a principal-style self-review of the plan and refine it in the comment.
+11. Before implementing, capture a concrete reproduction signal and record it in the workpad `Notes` section (command/output, screenshot, or deterministic UI behavior).
+12. Open and follow `.claude/skills/test-driven-development/SKILL.md`: run the selected test/validation and record the expected red/failing result. If the task is docs-only or cannot have a red test, record the explicit reason and the executable validation that will replace it. The red/green evidence must map back to the active OpenSpec tasks.
+13. Run the `pull` skill to sync with latest `origin/main` before any code edits, then record the pull/sync result in the workpad `Notes`.
     - Include a `pull skill evidence` note with:
       - merge source(s),
       - result (`clean` or `conflicts resolved`),
@@ -317,7 +319,7 @@ Use this only when completion is blocked by missing required tools, non-GitHub a
     - Do not post any additional completion summary comment.
 14. Open and follow `.claude/skills/requesting-code-review/SKILL.md`, then before moving to `Human Review`, poll PR feedback and checks:
     - Run `.claude/skills/openspec-verify-change/SKILL.md` and compare implementation, validation evidence, and PR/workpad notes against the current OpenSpec artifacts.
-    - Archive the verified OpenSpec change before requesting `Human Review`; unarchived changes fail the handoff gate.
+    - If verification passes with no critical findings, immediately archive the OpenSpec task/change with `.claude/skills/openspec-archive-change/SKILL.md`; unarchived changes fail the handoff gate and cannot move to `Human Review`.
     - Read the PR `Manual QA Plan` comment (when present) and use it to sharpen UI/runtime test coverage for the current change.
     - Run the full PR feedback sweep protocol.
     - Confirm PR checks are passing (green) after the latest changes.
@@ -337,17 +339,21 @@ Use this only when completion is blocked by missing required tools, non-GitHub a
 
 ## Step 3: Agent Review, Human Review and merge handling
 
-1. When the issue is in `Agent Review`, the designated reviewing agent should execute the `code-review` skill and compare the delivered change against the linked OpenSpec proposal/specs/design/tasks and `openspec/specs/` baseline.
+1. When the issue is in `Agent Review`, the designated reviewing agent must open and follow `.claude/skills/receiving-code-review/SKILL.md`, then execute the `code-review` skill and compare the delivered change against the linked OpenSpec proposal/specs/design/tasks and `openspec/specs/` baseline.
+   - Functional Review is mandatory: inspect implementation logic for requirement gaps, regressions, security or data-flow bugs, and false completion where the workpad or PR claims done while functionality is still missing.
+   - Apply `receiving-code-review` rigor to every finding: understand the requirement, verify it against codebase reality, evaluate technical correctness, and only then approve, request rework, or push back with evidence.
    - Use `requesting-code-review` and superpowers TDD tools for code review if needed.
    - Update the workpad `### Agent Review` section with review status, reviewer identity, findings, required fixes, and verification expectations.
-   - If the code has issues, record each issue as an unchecked finding in `### Agent Review`, move the issue to `Rework`, and restore the original `agent:*` label so the implementation agent can fix them. Do not move to `Human Review` from a failed agent review.
-   - If the code passes review, confirm the OpenSpec change is verified and archived, then mark the review status as approved in `### Agent Review` and move the issue to `Human Review`.
+   - If the code has issues, missing functionality, unverified acceptance criteria, an unarchived OpenSpec change, or false completion, record each issue as an unchecked finding in `### Agent Review`, move the issue to `Rework`, and restore the original `agent:*` label so the implementation agent can fix them. Do not move to `Human Review` from a failed agent review.
+   - If the code passes Functional Review, confirm the OpenSpec change is verified and archived, then mark the review status as approved in `### Agent Review` and move the issue to `Human Review`.
 2. When the issue is in `Human Review`, do not code or change ticket content.
 3. Poll for updates as needed, including GitHub PR review comments from humans and bots.
 4. If review feedback requires changes, move the issue to `Rework` and follow the rework flow.
 5. If approved, human moves the issue to `Merging`.
-5. When the issue is in `Merging`, open and follow `.claude/skills/land/SKILL.md`, then run the `land` skill in a loop until the PR is merged. Do not call `gh pr merge` directly.
-6. After merge is complete, move the issue to `Done`.
+5. When the issue is in `Merging`, open and follow `.claude/skills/land/SKILL.md`.
+6. Before merging, create an annotated pre-merge tag on the exact commit being landed, using `pre-merge-<issue-or-pr>-YYYYMMDD` when an issue/PR identifier is available, then push the tag.
+7. Run the `land` skill in a loop until the PR is merged. Do not call `gh pr merge` directly.
+8. After merge is complete, move the issue to `Done`.
 
 ## Step 4: Rework handling
 

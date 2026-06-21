@@ -54,8 +54,4 @@ grep -q "superpowers" WORKFLOW.md
 test ! -d .agents
 test ! -f skills-lock.json
 
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git diff --check
-else
-  echo "Skipping git diff --check because this directory is not a git repository yet."
-fi
+git diff --check
