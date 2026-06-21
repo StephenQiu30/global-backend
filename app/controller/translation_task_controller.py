@@ -1,15 +1,16 @@
-"""Translation task API endpoints."""
+"""Controller for translation task endpoints."""
+
+from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from app.core.errors import AppError
 from app.domain.languages import validate_language_code
 from app.domain.task import Task, TaskResult
-from app.dto.translation_task_dto import CreateTranslationTaskDTO
 from app.services.task_runner import TaskRunner
-from app.vo.translation_task_vo import TranslationTaskVO, FileMappingVO
 
-router = APIRouter()
+router = APIRouter(tags=["translation-tasks"])
 
 # Error code -> HTTP status mapping for known application errors.
 _ERROR_STATUS_MAP: dict[str, int] = {
@@ -55,21 +56,22 @@ def map_error_to_response(error: Exception) -> HTTPException:
     )
 
 
-def _to_translation_task_vo(result: TaskResult) -> TranslationTaskVO:
-    """Convert domain TaskResult to response VO."""
-    return TranslationTaskVO(
-        status=result.status.value,
-        pr_url=result.pr_url,
-        pr_number=result.pr_number,
-        mappings=[
-            FileMappingVO(source_path=m.source_path, target_path=m.target_path)
-            for m in result.mappings
-        ]
-        if result.mappings
-        else None,
-        error_code=result.error_code,
-        error_message=result.error_message,
-    )
+class TranslationTaskRequest(BaseModel):
+    """Request model for POST /api/translation-tasks."""
+
+    installation_id: str = Field(..., min_length=1)
+    repository: str = Field(..., min_length=1)
+    base_branch: str = Field(..., min_length=1)
+    files: List[str] = Field(..., min_length=1)
+    language: str = Field(..., min_length=1)
+
+
+class ErrorResponse(BaseModel):
+    """Structured error response."""
+
+    error: str
+    message: str
+    retryable: bool = False
 
 
 def _get_task_runner() -> TaskRunner:
@@ -77,19 +79,30 @@ def _get_task_runner() -> TaskRunner:
     raise NotImplementedError("TaskRunner not configured")
 
 
-@router.post("/translation-tasks", response_model=TranslationTaskVO)
+@router.post(
+    "/translation-tasks",
+    response_model=TaskResult,
+    operation_id="create_translation_task",
+    responses={
+        400: {"model": ErrorResponse, "description": "Invalid request"},
+        403: {"model": ErrorResponse, "description": "Permission denied"},
+        429: {"model": ErrorResponse, "description": "Rate limited"},
+        500: {"model": ErrorResponse, "description": "Internal error"},
+        504: {"model": ErrorResponse, "description": "Model timeout"},
+    },
+)
 async def create_translation_task(
-    request: CreateTranslationTaskDTO,
+    request: TranslationTaskRequest,
     task_runner: TaskRunner = Depends(_get_task_runner),
-) -> TranslationTaskVO:
+) -> TaskResult:
     """Create and execute a translation task synchronously.
 
     Args:
-        request: Translation task request DTO
+        request: Translation task request
         task_runner: Task runner service
 
     Returns:
-        TranslationTaskVO with status, PR info, or error details
+        TaskResult with status, PR info, or error details
     """
     if not validate_language_code(request.language):
         raise HTTPException(
@@ -105,5 +118,4 @@ async def create_translation_task(
         files=request.files,
         language=request.language,
     )
-    result = await task_runner.run(task)
-    return _to_translation_task_vo(result)
+    return await task_runner.run(task)

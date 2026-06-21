@@ -10,7 +10,7 @@ def test_verify_installation_success(client):
     mock_result.account_type = "Organization"
     mock_result.repository_selection = "all"
 
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation.return_value = mock_result
         mock_get_client.return_value = mock_client
@@ -36,7 +36,7 @@ def test_verify_installation_no_tokens_in_response(client):
     mock_result.account_type = "Organization"
     mock_result.repository_selection = "all"
 
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation.return_value = mock_result
         mock_get_client.return_value = mock_client
@@ -56,7 +56,7 @@ def test_verify_installation_no_tokens_in_response(client):
 
 def test_verify_installation_not_found(client):
     """POST /api/github/installations/verify returns 404 for invalid installation."""
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation.side_effect = ValueError("not found")
         mock_get_client.return_value = mock_client
@@ -73,7 +73,7 @@ def test_verify_installation_not_found(client):
 
 def test_verify_installation_github_api_error(client):
     """POST /api/github/installations/verify returns 502 on GitHub API failure."""
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation.side_effect = RuntimeError("GitHub API error")
         mock_get_client.return_value = mock_client
