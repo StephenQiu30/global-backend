@@ -69,7 +69,7 @@
 
 ## File Structure
 
-```
+```text
 app/
   vo/
     response_envelope.py      # ResponseEnvelope[T] 泛型模型
