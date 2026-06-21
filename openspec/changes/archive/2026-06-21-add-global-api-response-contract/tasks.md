@@ -1,10 +1,10 @@
 ## 1. SDD 文档产出（本 change）
 
-- [ ] 1.1 完成 `openspec/changes/add-global-api-response-contract/proposal.md`
-- [ ] 1.2 完成 `openspec/changes/add-global-api-response-contract/specs/global-api-response/spec.md`
-- [ ] 1.3 完成 `openspec/changes/add-global-api-response-contract/design.md`
-- [ ] 1.4 完成 `openspec/changes/add-global-api-response-contract/tasks.md`
-- [ ] 1.5 验证所有文档符合 OpenSpec config 规则：`bash scripts/validate-repository.sh`
+- [x] 1.1 完成 `openspec/changes/add-global-api-response-contract/proposal.md`
+- [x] 1.2 完成 `openspec/changes/add-global-api-response-contract/specs/global-api-response/spec.md`
+- [x] 1.3 完成 `openspec/changes/add-global-api-response-contract/design.md`
+- [x] 1.4 完成 `openspec/changes/add-global-api-response-contract/tasks.md`
+- [x] 1.5 验证所有文档符合 OpenSpec config 规则：`bash scripts/validate-repository.sh`
 
 ## 2. 后续实现 change（不在本 change 范围，仅列出任务边界）
 
@@ -26,6 +26,6 @@
 
 ## 3. 验证
 
-- [ ] 3.1 运行 `bash scripts/validate-repository.sh` 确认仓库结构完整
-- [ ] 3.2 人工 review spec 文档，对照现有控制器确认合同覆盖所有错误场景
+- [x] 3.1 运行 `bash scripts/validate-repository.sh` 确认仓库结构完整
+- [x] 3.2 人工 review spec 文档，对照现有控制器确认合同覆盖所有错误场景
 - [ ] 3.3 确认 Agent Review 通过后归档本 change
