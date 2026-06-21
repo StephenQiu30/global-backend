@@ -45,7 +45,7 @@
 
 ### Requirement 7: 翻译任务 VO
 
-`app/vo/translation_task_vo.py` SHALL 定义 `TranslationTaskVO`, `FilePreviewVO`, `PublicPreviewVO` 等响应 VO。
+`app/vo/translation_task_vo.py` SHALL 定义 `TranslationTaskCreateVO`, `TranslationTaskStatusVO`, `FilePreviewVO`, `PublicPreviewVO` 等响应 VO。
 
 ## 控制器集成
 

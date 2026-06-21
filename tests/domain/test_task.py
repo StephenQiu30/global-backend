@@ -1,7 +1,7 @@
 """Tests for task domain models."""
 
 import pytest
-from app.domain.task import TaskStatus, FileMapping, Task, TaskResult
+from app.domain.task import TaskStatus, FileMapping, Task
 
 
 class TestTaskStatus:
@@ -77,56 +77,3 @@ class TestTask:
             language="ko",
         )
         assert len(task.files) == 3
-
-
-class TestTaskResult:
-    """Tests for TaskResult model."""
-
-    def test_succeeded_result(self):
-        result = TaskResult(
-            status=TaskStatus.SUCCEEDED,
-            pr_url="https://github.com/owner/repo/pull/42",
-            pr_number=42,
-            mappings=[
-                FileMapping(source_path="README.md", target_path="README.zh-CN.md"),
-            ],
-        )
-        assert result.status == TaskStatus.SUCCEEDED
-        assert result.pr_url == "https://github.com/owner/repo/pull/42"
-        assert result.pr_number == 42
-        assert len(result.mappings) == 1
-        assert result.error_code is None
-        assert result.error_message is None
-
-    def test_failed_result(self):
-        result = TaskResult(
-            status=TaskStatus.FAILED,
-            error_code="translation_error",
-            error_message="Translation provider returned an error",
-        )
-        assert result.status == TaskStatus.FAILED
-        assert result.error_code == "translation_error"
-        assert result.error_message == "Translation provider returned an error"
-        assert result.pr_url is None
-        assert result.pr_number is None
-        assert result.mappings is None
-
-    def test_failed_result_with_file_read_error(self):
-        result = TaskResult(
-            status=TaskStatus.FAILED,
-            error_code="file_read_error",
-            error_message="Failed to read file: README.md",
-        )
-        assert result.error_code == "file_read_error"
-
-    def test_result_with_multiple_mappings(self):
-        result = TaskResult(
-            status=TaskStatus.SUCCEEDED,
-            pr_url="https://github.com/owner/repo/pull/99",
-            pr_number=99,
-            mappings=[
-                FileMapping(source_path="README.md", target_path="README.zh-CN.md"),
-                FileMapping(source_path="docs/guide.md", target_path="docs/guide.zh-CN.md"),
-            ],
-        )
-        assert len(result.mappings) == 2

@@ -14,4 +14,3 @@ def test_init_schema_creates_orm_tables(tmp_path):
     inspector = inspect(engine)
     assert inspector.has_table("installation_accounts")
     assert inspector.has_table("translation_tasks")
-    assert inspector.has_table("translation_files")

@@ -2,8 +2,6 @@
 
 from app.vo.installation_vo import InstallationVO, RepositoryItemVO, RepositoryListVO
 from app.vo.translation_task_vo import (
-    TranslationTaskVO,
-    FileMappingVO,
     PublicPreviewVO,
     FilePreviewVO,
 )
@@ -88,73 +86,6 @@ class TestRepositoryListVO:
         vo = RepositoryListVO(repositories=[])
         data = vo.model_dump()
         assert data["repositories"] == []
-
-
-class TestFileMappingVO:
-    """Tests for FileMappingVO serialization."""
-
-    def test_serialization(self):
-        vo = FileMappingVO(
-            source_path="README.md",
-            target_path="README.zh-CN.md",
-        )
-        data = vo.model_dump()
-        assert data["source_path"] == "README.md"
-        assert data["target_path"] == "README.zh-CN.md"
-
-
-class TestTranslationTaskVO:
-    """Tests for TranslationTaskVO serialization."""
-
-    def test_success_serialization(self):
-        vo = TranslationTaskVO(
-            status="succeeded",
-            pr_url="https://github.com/owner/repo/pull/123",
-            pr_number=123,
-            mappings=[
-                FileMappingVO(
-                    source_path="README.md",
-                    target_path="README.zh-CN.md",
-                )
-            ],
-            error_code=None,
-            error_message=None,
-        )
-        data = vo.model_dump()
-        assert data["status"] == "succeeded"
-        assert data["pr_url"] == "https://github.com/owner/repo/pull/123"
-        assert data["pr_number"] == 123
-        assert len(data["mappings"]) == 1
-        assert data["error_code"] is None
-        assert data["error_message"] is None
-
-    def test_failure_serialization(self):
-        vo = TranslationTaskVO(
-            status="failed",
-            pr_url=None,
-            pr_number=None,
-            mappings=None,
-            error_code="translation_error",
-            error_message="Translation provider returned an error",
-        )
-        data = vo.model_dump()
-        assert data["status"] == "failed"
-        assert data["pr_url"] is None
-        assert data["pr_number"] is None
-        assert data["mappings"] is None
-        assert data["error_code"] == "translation_error"
-        assert data["error_message"] == "Translation provider returned an error"
-
-    def test_status_field_is_string(self):
-        vo = TranslationTaskVO(
-            status="succeeded",
-            pr_url=None,
-            pr_number=None,
-            mappings=None,
-            error_code=None,
-            error_message=None,
-        )
-        assert isinstance(vo.status, str)
 
 
 class TestFilePreviewVO:

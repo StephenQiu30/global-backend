@@ -14,14 +14,13 @@ it is an actionable reference for contributors working in `global-backend`.
 ```text
 app/
   controller/          # FastAPI controllers — the only HTTP interface layer
-  application/         # Use-case orchestration services
   domain/              # Pure business logic, enums, value rules
-  dto/                 # Inbound request / command schemas
-  vo/                  # Outbound response / view schemas
+  dto/                 # Inbound request schemas (XxxRequest)
+  vo/                  # Outbound response schemas (XxxVO)
   models/              # SQLAlchemy ORM models mapped to PgSQL tables
   repositories/        # Database access boundary (SQLAlchemy sessions)
-  db/                  # Engine, session factory, DeclarativeBase
-  services/            # Infrastructure-facing clients (GitHub, OpenAI, etc.)
+  db/                  # Engine, session factory, schema initialization
+  services/            # Business orchestration + external clients (GitHub, OpenAI)
   queues/              # Redis/RQ queue adapters
   workers/             # RQ job entrypoints
   core/                # Settings, errors, shared infrastructure
@@ -37,29 +36,31 @@ source of truth — no endpoint definitions should exist outside this layer.
 Each controller file:
 - Declares route handlers with explicit `tags`, `response_model`, and
   `responses` metadata.
-- Validates inbound data using DTOs from `app/dto/`.
+- Validates inbound data using Request DTOs from `app/dto/`.
 - Returns outbound data as VOs from `app/vo/`.
-- Delegates business logic to an application service.
+- Delegates business logic to a service in `app/services/`.
 - Contains no direct database queries, no ORM imports, and no inline Pydantic
   request/response models.
 
-**Naming:** `{Resource}Controller` (e.g. `TranslationTaskController`,
-`InstallationController`). Files: `{resource}_controller.py`.
+**Naming:** Files: `{resource}_controller.py`.
 
-### `application/`
+### `services/`
 
-Use-case orchestration services that coordinate domain logic, repositories,
-infrastructure services, and queue adapters.
+Business orchestration and infrastructure-facing clients.
 
-Each application service:
-- Accepts DTOs or domain objects as input.
-- Calls repositories for persistence, infrastructure services for external
-  calls, and queue adapters for async work.
-- Returns domain objects or VOs.
+Orchestration services (e.g. `TranslationTaskService`) coordinate domain logic,
+repositories, queue adapters, and external clients. Infrastructure clients
+(e.g. `GitHubAppClient`, `OpenAITranslationProvider`) wrap external APIs.
+
+Each orchestration service:
+- Accepts primitive arguments or domain objects as input.
+- Calls repositories for persistence, clients for external calls, and queue
+  adapters for async work.
+- Returns VOs or domain objects.
 - Contains no HTTP or FastAPI imports.
 
 **Naming:** `{Resource}Service` (e.g. `TranslationTaskService`). Files:
-`{resource}_service.py`.
+`{resource}_service.py` or `{system}.py` for clients.
 
 ### `domain/`
 
@@ -74,10 +75,10 @@ Current contents include `TaskStatus`, `Task`, `TaskResult`, `RepositoryRef`,
 
 ### `dto/`
 
-Inbound request and command schemas used by controllers for input validation.
+Inbound request schemas used by controllers for input validation.
 
-**Naming:** `{Action}{Resource}DTO` (e.g. `CreateTranslationTaskDTO`,
-`VerifyInstallationDTO`). Files: `{resource}_dto.py`.
+**Naming:** `{Action}{Resource}Request` (e.g. `CreateTranslationTaskRequest`,
+`VerifyInstallationRequest`). Files: `{resource}.py`.
 
 **Rule:** DTOs are Pydantic `BaseModel` subclasses. They must not import ORM
 models or database session objects.
@@ -86,8 +87,8 @@ models or database session objects.
 
 Outbound response and view schemas returned by controllers.
 
-**Naming:** `{Resource}VO` (e.g. `TranslationTaskVO`,
-`TranslationFilePreviewVO`). Files: `{resource}_vo.py`.
+**Naming:** `{Resource}VO` (e.g. `TranslationTaskCreateVO`,
+`TranslationTaskStatusVO`). Files: `{resource}_vo.py`.
 
 **Rule:** VOs are Pydantic `BaseModel` subclasses. Controllers must never
 return ORM model instances directly — always convert to a VO first.
@@ -97,12 +98,13 @@ return ORM model instances directly — always convert to a VO first.
 SQLAlchemy 2.x ORM models mapped to PostgreSQL tables. Each model file
 defines one `Mapped` class with column definitions, indexes, and table name.
 
-**Naming:** `{Resource}Model` (e.g. `TranslationTaskModel`). Files:
-`{resource}_model.py`.
+`Base` (DeclarativeBase) lives in `app/models/base.py`.
 
-**Rule:** Models must not import from `controller/`, `dto/`, `vo/`,
-`application/`, or `services/`. Models may only import from `db/` for the
-`DeclarativeBase`.
+**Naming:** `{Resource}Model` (e.g. `TranslationTaskModel`). Files:
+`{resource}.py`.
+
+**Rule:** Models must not import from `controller/`, `dto/`, `vo/`, or
+`services/`.
 
 ### `repositories/`
 
@@ -113,25 +115,19 @@ wraps queries and mutations for one aggregate or table.
 `{resource}_repository.py`.
 
 **Rule:** Repositories may depend on `models/` and `db/`. They must not
-depend on `controller/`, `dto/`, `vo/`, or `application/`. Methods are named
-after product actions (e.g. `save_task`, `get_task_by_id`), not generic CRUD.
+depend on `controller/`, `dto/`, or `vo/`. Methods are named after product
+actions (e.g. `create`, `get_by_id`), not generic CRUD.
 
 ### `db/`
 
-SQLAlchemy engine configuration, async session factory, and `DeclarativeBase`.
+SQLAlchemy engine configuration, async session factory, and schema init.
 
 Current files:
-- `base.py` — `DeclarativeBase` class.
-- `session.py` — `init_engine()` and `get_session()` async generator.
+- `engine.py` — async engine factory.
+- `session.py` — `get_async_session()` async generator.
+- `schema.py` — `init_schema()` using `Base.metadata.create_all`.
 
-### `services/`
-
-Infrastructure-facing clients and providers that already exist in the codebase:
-`GitHubAppClient`, `OpenAITranslationProvider`, `PublicRepositoryClient`,
-`MarkdownFidelityService`, etc.
-
-These are external system adapters. New business orchestration should go in
-`application/`, not here.
+Schema is initialized via `scripts/init_db.py`, not Alembic.
 
 ### `queues/`
 
@@ -143,7 +139,7 @@ Redis/RQ queue adapters. Each adapter wraps `enqueue()` for one job type.
 ### `workers/`
 
 RQ job entrypoints. Each worker function receives a job ID, loads the record
-via a repository, and delegates to an application service.
+via a repository, and delegates to a service.
 
 **Naming:** `{resource}_jobs.py` (e.g. `translation_jobs.py`).
 
@@ -155,22 +151,20 @@ class, and other cross-cutting utilities.
 ## Dependency Rules
 
 ```text
-controller ──→ dto, vo, application
-application ──→ domain, repositories, queues, services
+controller ──→ dto, vo, services
+services ──→ domain, repositories, queues, (external clients)
 repositories ──→ models, db
-models ──→ db (DeclarativeBase only)
+models ──→ base (DeclarativeBase only)
 domain ──→ (no framework imports)
-workers ──→ application, queues
+workers ──→ services, queues
 queues ──→ (Redis/RQ client only)
 ```
 
 **Forbidden directions:**
-- `models` must NOT depend on `controller`, `dto`, `vo`, `application`, or
-  `services`.
+- `models` must NOT depend on `controller`, `dto`, `vo`, or `services`.
 - `domain` must NOT depend on SQLAlchemy, FastAPI, `models/`, `repositories/`,
   `controller/`, `dto/`, or `vo/`.
-- `repositories` must NOT depend on `controller`, `dto`, `vo`, or
-  `application`.
+- `repositories` must NOT depend on `controller`, `dto/`, or `vo/`.
 - `controller` must NOT import ORM models or database sessions.
 
 ## Where to Add New Features
@@ -182,10 +176,10 @@ queues ──→ (Redis/RQ client only)
 | Business rules or enums        | `domain/`            | `task.py`, `languages.py`             |
 | Inbound request validation     | `dto/`               | `translation_task.py`                 |
 | Outbound response shape        | `vo/`                | `translation_task_vo.py`              |
-| A new database table           | `models/`            | `translation_task_model.py`           |
+| A new database table           | `models/`            | `translation_task.py`                 |
 | Database query logic           | `repositories/`      | `translation_task_repository.py`      |
 | An external API client         | `services/`          | `github_app.py`                       |
-| A background job queue adapter | `queues/`            | `translation_task_queue.py`           |
+| A background job queue adapter | `queues/`            | `translation_task_queue.py`         |
 | A background job entrypoint    | `workers/`           | `translation_jobs.py`                 |
 | App configuration              | `core/config.py`     | Add `Settings` field                  |
 
@@ -195,29 +189,18 @@ All HTTP endpoint definitions MUST live under `app/controller/`. No endpoint
 definitions should exist outside this layer.
 
 **Why:** A single source of truth for HTTP interfaces makes Swagger
-documentation, API testing, and interface review predictable. Duplicate
-endpoint definitions in duplicate HTTP layers create drift and confusion.
+documentation, API testing, and interface review predictable.
 
 ## Swagger / OpenAPI Requirements
 
 Every new controller endpoint must satisfy these requirements:
 
-1. **Tags:** Each router must declare `tags=[...]` grouping related endpoints
-   (e.g. `installations`, `repositories`, `languages`, `translation-tasks`,
-   `public-preview`).
-
-2. **Response model:** Every endpoint must declare `response_model` for the
-   success case using a VO from `app/vo/`.
-
+1. **Tags:** Each router must declare `tags=[...]` grouping related endpoints.
+2. **Response model:** Every endpoint must declare `response_model` using a VO.
 3. **Error responses:** Endpoints must declare `responses` metadata for
-   expected error codes (400, 403, 404, 422, 500) with description and schema.
-
-4. **Operation ID:** Configure stable `operation_id` generation so generated
-   API clients do not churn unexpectedly between releases.
-
-5. **No ORM models in responses:** Controllers must never return SQLAlchemy
-   model instances. Always convert to a VO.
-
+   expected error codes (400, 403, 404, 422, 500).
+4. **Operation ID:** Configure stable `operation_id` generation.
+5. **No ORM models in responses:** Always convert to a VO.
 6. **Documentation endpoints:** Swagger UI at `/docs` and OpenAPI JSON at
    `/openapi.json` must remain available.
 
@@ -225,12 +208,12 @@ Every new controller endpoint must satisfy these requirements:
 
 | Layer          | Class suffix   | File suffix        | Example                              |
 |----------------|----------------|--------------------|--------------------------------------|
-| Controller     | `Controller`   | `_controller.py`   | `TranslationTaskController`          |
-| Application    | `Service`      | `_service.py`      | `TranslationTaskService`             |
+| Controller     | (functions)    | `_controller.py`   | `create_translation_task`            |
+| Service        | `Service`      | `_service.py`      | `TranslationTaskService`             |
 | Domain         | (none)         | `.py`              | `Task`, `TaskStatus`                 |
-| DTO            | `DTO`          | `_dto.py`          | `CreateTranslationTaskDTO`           |
-| VO             | `VO`           | `_vo.py`           | `TranslationTaskVO`                  |
-| ORM Model      | `Model`        | `_model.py`        | `TranslationTaskModel`               |
+| DTO            | `Request`      | `.py`              | `CreateTranslationTaskRequest`       |
+| VO             | `VO`           | `_vo.py`           | `TranslationTaskCreateVO`            |
+| ORM Model      | `Model`        | `.py`              | `TranslationTaskModel`               |
 | Repository     | `Repository`   | `_repository.py`   | `TranslationTaskRepository`          |
 | Queue Adapter  | `Queue`        | `_queue.py`        | `TranslationTaskQueue`               |
 | Worker         | (function)     | `_jobs.py`         | `translation_jobs.py`                |
@@ -239,14 +222,12 @@ Every new controller endpoint must satisfy these requirements:
 
 These are intentionally not part of this architecture:
 
+- **No `app/application/` layer.** Orchestration lives in `app/services/`.
+- **No `app/api/` layer.** HTTP lives only in `app/controller/`.
+- **No Alembic migrations (current phase).** Schema via `scripts/init_db.py`.
 - **No frontend work.** This document covers backend structure only.
 - **No full authentication system.** Auth decisions are deferred.
-- **No generic repository base class.** Avoid premature abstraction; add only
-  when real duplication appears.
+- **No generic repository base class.** Add only when real duplication appears.
 - **No multi-queue prioritization.** One RQ queue until the first path works.
-- **No dependency injection framework.** FastAPI `Depends()` is sufficient
-  until evidence shows otherwise.
-- **No event bus or workflow engine.** Keep orchestration in application
-  services.
-- **No broad platform manifesto.** This guide is specific to
-  `global-backend`.
+- **No dependency injection framework.** FastAPI `Depends()` is sufficient.
+- **No event bus or workflow engine.** Keep orchestration in services.

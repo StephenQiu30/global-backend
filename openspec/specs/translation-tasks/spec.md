@@ -85,31 +85,19 @@ TaskRunner 遇到错误时 SHALL：
 
 系统 SHALL 提供 `POST /api/translation-tasks` 端点：
 - 接收 JSON body：`{ installation_id, repository, base_branch, files, language }`
-- 同步执行任务并返回结果
-- 成功返回 200 + TaskResult JSON
+- 创建持久化任务记录并入队到 RQ
+- 成功返回 201 + `{ task_id, status: "queued" }`
 - 校验失败返回 422
+- 语言不支持返回 400
 
-### Requirement 11: 成功响应格式
+### Requirement 11: GET /api/translation-tasks/{task_id}
 
-成功响应 SHALL 包含：
-```json
-{
-  "status": "succeeded",
-  "pr_url": "https://github.com/owner/repo/pull/123",
-  "pr_number": 123,
-  "mappings": [
-    { "source_path": "README.md", "target_path": "README.zh-CN.md" }
-  ]
-}
-```
+系统 SHALL 提供 `GET /api/translation-tasks/{task_id}` 端点：
+- 成功返回 200 + 任务状态 VO（含 `task_id`, `status`, `repository`, `language`, 可选 `pr_url`/`pr_number`/`file_mappings`/错误字段）
+- 未找到返回 404
 
-### Requirement 12: 失败响应格式
+### Requirement 12: GET /api/translation-tasks/{task_id}/file-previews
 
-失败响应 SHALL 包含：
-```json
-{
-  "status": "failed",
-  "error_code": "translation_error",
-  "error_message": "Translation provider returned an error"
-}
-```
+系统 SHALL 提供 `GET /api/translation-tasks/{task_id}/file-previews` 端点：
+- 成功任务返回 200 + 文件映射预览列表
+- 未找到返回 404

@@ -13,19 +13,18 @@
 系统 SHALL 使用 SQLAlchemy 2.x 作为 ORM 框架。
 
 - ORM Model SHALL 使用 SQLAlchemy 2.x 声明式映射（Declarative Mapping）
-- ORM Model SHALL 继承自项目统一的 `Base` 基类（定义于 `app/db/base.py`）
+- ORM Model SHALL 继承自项目统一的 `Base` 基类（定义于 `app/models/base.py`）
 - ORM Model SHALL 定义表名、列、关系和约束
-- ORM Model SHALL NOT 包含业务逻辑；业务逻辑属于 Application Service
+- ORM Model SHALL NOT 包含业务逻辑；业务逻辑属于 `app/services/`
 - ORM Model 文件 SHALL 放置在 `app/models/` 目录
 
-### Requirement 3: Alembic 迁移
+### Requirement 3: Schema 初始化
 
-系统 SHALL 使用 Alembic 管理数据库 schema 迁移。
+系统 SHALL 通过 `scripts/init_db.py` 使用 SQLAlchemy `Base.metadata.create_all` 初始化数据库 schema。
 
-- 迁移脚本 SHALL 放置在 `alembic/versions/`
-- Alembic 配置 SHALL 读取 `DATABASE_URL` 环境变量
-- 每个 schema 变更 SHALL 生成独立的迁移脚本
-- 迁移脚本 SHALL 包含 `upgrade()` 和 `downgrade()` 方法
+- ORM Model 定义于 `app/models/` 是 schema 的唯一来源
+- 系统 SHALL NOT 使用 Alembic 迁移（当前阶段）
+- `init_schema()` 定义于 `app/db/schema.py`，由 `scripts/init_db.py` 调用
 
 ## Repository / DAO Layer
 
@@ -56,7 +55,7 @@ Repository 方法 SHALL 遵循以下命名约定：
 系统 SHALL 使用 Redis 作为消息代理，RQ（Redis Queue）作为任务队列框架。
 
 - Redis 连接 SHALL 通过环境变量 `REDIS_URL` 提供
-- RQ Queue SHALL 使用默认队列名 `default`
+- RQ Queue 名称 SHALL 通过环境变量 `RQ_QUEUE_NAME` 配置
 - 系统 SHALL NOT 使用 Celery、Dramatiq 或其他队列框架
 - 系统 SHALL NOT 实现多队列策略；单一 `default` 队列满足所有场景
 
@@ -88,7 +87,7 @@ Repository 方法 SHALL 遵循以下命名约定：
 - Controller SHALL 定义 FastAPI Router 和端点
 - Controller SHALL 接收 DTO 作为请求入参
 - Controller SHALL 返回 VO 作为响应出参
-- Controller SHALL NOT 直接操作数据库；通过 Application Service 编排
+- Controller SHALL NOT 直接操作数据库；通过 `app/services/` 编排
 - Controller SHALL NOT 返回 ORM Model 实例
 
 ### Requirement 10: DTO（Data Transfer Object）
@@ -116,19 +115,18 @@ Repository 方法 SHALL 遵循以下命名约定：
 Controller 响应 SHALL NOT 直接返回 ORM Model 实例。
 
 - Controller SHALL 将 ORM Model 转换为 VO 后返回
-- 转换逻辑 SHALL 在 Application Service 或专门的 mapper 中完成
+- 转换逻辑 SHALL 在 Service 或专门的 mapper 中完成
 - 违反此规则的代码 SHALL NOT 通过 Agent Review
 
-## Application Service Layer
+## Service Layer
 
-### Requirement 13: Application Service 业务编排
+### Requirement 13: Service 业务编排
 
-系统 SHALL 提供 Application Service 层编排业务逻辑。
+系统 SHALL 在 `app/services/` 提供业务编排层。
 
-- Application Service SHALL 放置在 `app/services/` 目录（复用现有目录）
-- Application Service SHALL 协调 Repository、Queue 和外部服务调用
-- Application Service SHALL 包含业务规则校验和事务边界
-- Application Service SHALL NOT 包含 HTTP 相关逻辑
+- Service SHALL 协调 Repository、Queue 和外部客户端（如 GitHub、翻译 Provider）
+- Service SHALL 包含业务规则校验和事务边界
+- Service SHALL NOT 包含 HTTP 相关逻辑
 
 ## Swagger / OpenAPI
 
@@ -150,13 +148,13 @@ Swagger/OpenAPI SHALL 由 controller 定义自动生成。
 ```
 app/
   controller/       # API 层（FastAPI Router）
-  services/         # Application Service 层
+  services/         # 业务编排与外部客户端（GitHub、翻译 Provider 等）
   domain/           # 领域模型（纯 Python，无框架依赖）
   dto/              # Data Transfer Object（Pydantic，入参）
   vo/               # Value Object（Pydantic，出参）
   models/           # ORM Model（SQLAlchemy）
   repositories/     # Repository/DAO 层
-  db/               # 数据库连接、session、Base 定义
+  db/               # 数据库连接、session、schema 初始化
   queues/           # RQ 队列封装
   workers/          # RQ Worker 入口
   core/             # 配置、错误处理等基础设施

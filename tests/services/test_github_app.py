@@ -18,6 +18,37 @@ class TestGitHubAppClient:
     """Tests for GitHubAppClient repository authorization."""
 
     @respx.mock
+    def test_get_installation_returns_account_info(self, github_client):
+        """Client must return installation account info from GitHub API."""
+        respx.get("https://api.github.com/app/installations/67890").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "id": 67890,
+                    "account": {"login": "test-org", "type": "Organization"},
+                    "repository_selection": "all",
+                },
+            )
+        )
+
+        result = github_client.get_installation(67890)
+
+        assert result.installation_id == 67890
+        assert result.account_login == "test-org"
+        assert result.account_type == "Organization"
+        assert result.repository_selection == "all"
+
+    @respx.mock
+    def test_get_installation_raises_on_not_found(self, github_client):
+        """Client must raise when installation not found."""
+        respx.get("https://api.github.com/app/installations/99999").mock(
+            return_value=httpx.Response(404, json={"message": "Not Found"})
+        )
+
+        with pytest.raises(ValueError, match="not found"):
+            github_client.get_installation(99999)
+
+    @respx.mock
     def test_get_installation_repositories(self, github_client):
         """Get repositories for an installation."""
         respx.get("https://api.github.com/installation/repositories").mock(
@@ -44,6 +75,16 @@ class TestGitHubAppClient:
         assert len(repos) == 2
         assert repos[0].full_name == "owner/repo1"
         assert repos[1].full_name == "owner/repo2"
+
+    @respx.mock
+    def test_get_installation_repos_empty_list(self, github_client):
+        """Return empty list when no repos are authorized."""
+        respx.get("https://api.github.com/installation/repositories").mock(
+            return_value=httpx.Response(200, json={"repositories": []})
+        )
+
+        repos = github_client.get_installation_repos(installation_id=12345)
+        assert repos == []
 
     @respx.mock
     def test_is_repository_authorized_true(self, github_client):

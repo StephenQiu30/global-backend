@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from app.models.base import Base
 from app.models.installation_account import InstallationAccountModel
 from app.models.translation_task import TranslationTaskModel
-from app.models.translation_file import TranslationFileModel
 
 
 @pytest.fixture
@@ -181,46 +180,3 @@ class TestTranslationTaskModel:
 
         assert json.loads(model.files) == files
         assert json.loads(model.mappings) == mappings
-
-
-class TestTranslationFileModel:
-    """Tests for TranslationFileModel ORM."""
-
-    async def test_create_translation_file(self, session):
-        """Creating a TranslationFileModel persists with correct fields."""
-        model = TranslationFileModel(
-            task_id="task-123",
-            source_path="README.md",
-            target_path="README.zh-CN.md",
-            status="translated",
-        )
-        session.add(model)
-        await session.commit()
-        await session.refresh(model)
-
-        assert model.id is not None
-        assert model.task_id == "task-123"
-        assert model.source_path == "README.md"
-        assert model.target_path == "README.zh-CN.md"
-        assert model.status == "translated"
-        assert model.created_at is not None
-
-    async def test_multiple_files_per_task(self, session):
-        """Multiple file records can be associated with the same task."""
-        for i in range(3):
-            model = TranslationFileModel(
-                task_id="task-multi",
-                source_path=f"file-{i}.md",
-                target_path=f"file-{i}.zh-CN.md",
-                status="translated",
-            )
-            session.add(model)
-        await session.commit()
-
-        from sqlalchemy import select
-        stmt = select(TranslationFileModel).where(
-            TranslationFileModel.task_id == "task-multi"
-        )
-        result = await session.execute(stmt)
-        files = list(result.scalars().all())
-        assert len(files) == 3
