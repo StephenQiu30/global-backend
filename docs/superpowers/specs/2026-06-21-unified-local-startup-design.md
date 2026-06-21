@@ -8,14 +8,18 @@ without remembering separate database initialization, API, and worker commands.
 
 ## Current Context
 
-The repository already has an emerging unified entrypoint:
+The repository already has an emerging unified entrypoint, but it still has
+extra startup surfaces that should be cleaned up:
 
 - `app/__main__.py` allows `python -m app`.
-- `pyproject.toml` exposes `global-backend = "app.runner:main"`.
 - `app/runner.py` initializes the database schema, starts an RQ worker child
   process, and starts Uvicorn.
 - `README.md` and `docs/operations/local-development.md` already describe
   `python -m app` as the local startup command.
+- `pyproject.toml` currently exposes `global-backend = "app.runner:main"`,
+  which should be removed so there is no extra console entrypoint.
+- `scripts/init_db.py` currently provides an old database-only startup helper,
+  which should be removed because `python -m app` owns schema initialization.
 
 The missing piece is a Docker one-command local development path. There is no
 accepted `Dockerfile` or `docker-compose.yml` in the current repository state.
@@ -30,19 +34,14 @@ Local startup:
 python -m app
 ```
 
-Installed console startup:
-
-```bash
-global-backend
-```
-
 Docker startup:
 
 ```bash
 docker compose up --build
 ```
 
-This keeps the mental model small: one Python entrypoint and one Docker command.
+This keeps the mental model small: one Python main entrypoint and one Docker
+command. Do not keep additional project startup commands.
 
 ## Architecture
 
@@ -61,6 +60,13 @@ It owns this sequence:
 
 `app/main.py` remains the FastAPI application factory and must not become the
 process orchestration layer.
+
+`pyproject.toml` should not define a `[project.scripts]` startup command for
+the backend. Developers should not have to choose between `global-backend` and
+`python -m app`.
+
+`scripts/init_db.py` should be deleted. Database schema initialization belongs
+to `app.runner:main` for local startup.
 
 ### Docker Compose
 
@@ -107,11 +113,14 @@ The compose file should:
 Update README and operations docs so the startup choices are explicit:
 
 - Local Python: `python -m app`
-- Installed command: `global-backend`
 - Docker: `docker compose up --build`
 - Stop Docker stack: `docker compose down`
 - Reset Docker database: `docker compose down -v`
 - API docs: `http://127.0.0.1:8000/docs`
+
+Remove references that present `global-backend`, `scripts/init_db.py`, raw
+`uvicorn app.main:app`, or manual database-only initialization as project
+startup entrypoints.
 
 ## Error Handling
 
