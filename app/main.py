@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 
+from app.core.exceptions import register_exception_handlers
+from app.core.response import TraceIdMiddleware
 from app.controller.installation_controller import (
     router as installations_router,
     _get_installation_service,
@@ -50,6 +52,9 @@ def create_app(
         version="0.1.0",
         openapi_tags=OPENAPI_TAGS,
     )
+
+    app.add_middleware(TraceIdMiddleware)
+    register_exception_handlers(app)
 
     if task_service is not None:
         app.dependency_overrides[_get_task_service] = lambda: task_service
