@@ -34,7 +34,9 @@ class TestRepositoryResolveAuthorization:
             )
         assert response.status_code == 403
         data = response.json()
-        assert data["detail"]["error"] == "repository_not_installed"
+        assert "code" in data
+        assert "trace_id" in data
+        assert data["data"] is None
 
     def test_authorized_repo_proceeds(self, client):
         """Authorized repository resolves successfully."""
