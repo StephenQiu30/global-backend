@@ -1,28 +1,29 @@
 """Public preview API endpoint."""
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
-from app.services.public_repository import PublicPreviewService, PublicPreviewResult
+from app.dto.translation_task_dto import CreatePublicPreviewDTO
+from app.services.public_repository import (
+    PublicPreviewService,
+    PublicPreviewResult,
+)
+from app.vo.translation_task_vo import PublicPreviewVO, FilePreviewVO
 
 router = APIRouter()
 
 
-class PublicPreviewRequest(BaseModel):
-    """Request model for POST /api/public-preview."""
-
-    repository: str = Field(..., min_length=1)
-    files: List[str] = Field(..., min_length=1)
-    language: str = Field(..., min_length=1)
-
-
-class ErrorResponse(BaseModel):
-    """Structured error response."""
-
-    error_code: str
-    message: str
+def _to_public_preview_vo(result: PublicPreviewResult) -> PublicPreviewVO:
+    """Convert service PublicPreviewResult to response VO."""
+    return PublicPreviewVO(
+        previews=[
+            FilePreviewVO(
+                source_path=p.source_path,
+                target_path=p.target_path,
+                translated_content=p.translated_content,
+            )
+            for p in result.previews
+        ]
+    )
 
 
 def _get_public_preview_service() -> PublicPreviewService:
@@ -30,27 +31,28 @@ def _get_public_preview_service() -> PublicPreviewService:
     raise NotImplementedError("PublicPreviewService not configured")
 
 
-@router.post("/public-preview", response_model=PublicPreviewResult)
+@router.post("/public-preview", response_model=PublicPreviewVO)
 async def create_public_preview(
-    request: PublicPreviewRequest,
+    request: CreatePublicPreviewDTO,
     service: PublicPreviewService = Depends(_get_public_preview_service),
-) -> PublicPreviewResult:
+) -> PublicPreviewVO:
     """Create a read-only translation preview for a public repository.
 
     Args:
-        request: Public preview request
+        request: Public preview request DTO
         service: Public preview service
 
     Returns:
-        PublicPreviewResult with translated previews (no PR URL)
+        PublicPreviewVO with translated previews (no PR URL)
     """
     try:
-        return await service.preview(
+        result = await service.preview(
             repository=request.repository,
             branch="main",
             files=request.files,
             language=request.language,
         )
+        return _to_public_preview_vo(result)
     except ValueError as e:
         msg = str(e).lower()
         if "not found" in msg:

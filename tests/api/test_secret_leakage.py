@@ -35,7 +35,7 @@ class TestVerifyInstallationSecretLeakage:
         mock_result.account_type = "Organization"
         mock_result.repository_selection = "all"
 
-        with patch("app.api.installations.get_github_client") as mock_get_client:
+        with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.get_installation.return_value = mock_result
             mock_get_client.return_value = mock_client
@@ -65,7 +65,7 @@ class TestListRepositoriesSecretLeakage:
             )
         ]
 
-        with patch("app.api.installations.get_github_client") as mock_get_client:
+        with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.get_installation_repos.return_value = mock_repos
             mock_get_client.return_value = mock_client
@@ -84,7 +84,7 @@ class TestResolveRepositorySecretLeakage:
     @pytest.mark.parametrize("keyword", SENSITIVE_KEYWORDS)
     def test_response_does_not_contain_sensitive_keyword(self, client, keyword):
         """Response body must not contain sensitive keywords."""
-        with patch("app.api.repositories.get_github_client") as mock_get_client:
+        with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.return_value = True
             mock_client.get_repository_info.return_value = RepositoryInfo(
@@ -108,7 +108,7 @@ class TestErrorResponsesNoStackTrace:
 
     def test_404_error_no_traceback(self, client):
         """404 error response must not contain traceback."""
-        with patch("app.api.installations.get_github_client") as mock_get_client:
+        with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.get_installation.side_effect = ValueError("not found")
             mock_get_client.return_value = mock_client
@@ -124,7 +124,7 @@ class TestErrorResponsesNoStackTrace:
 
     def test_502_error_no_traceback(self, client):
         """502 error response must not contain traceback."""
-        with patch("app.api.installations.get_github_client") as mock_get_client:
+        with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.get_installation.side_effect = RuntimeError("API error")
             mock_get_client.return_value = mock_client

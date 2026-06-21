@@ -9,7 +9,9 @@ from app.application.translation_task_service import (
 )
 from app.core.errors import AppError
 from app.domain.task import TaskResult
+from app.dto.translation_task_dto import CreateTranslationTaskDTO
 from app.services.task_runner import TaskRunner
+from app.vo.translation_task_vo import TranslationTaskVO, FileMappingVO
 
 router = APIRouter()
 
@@ -57,6 +59,23 @@ def map_error_to_response(error: Exception) -> HTTPException:
     )
 
 
+def _to_translation_task_vo(result: TaskResult) -> TranslationTaskVO:
+    """Convert domain TaskResult to response VO."""
+    return TranslationTaskVO(
+        status=result.status.value,
+        pr_url=result.pr_url,
+        pr_number=result.pr_number,
+        mappings=[
+            FileMappingVO(source_path=m.source_path, target_path=m.target_path)
+            for m in result.mappings
+        ]
+        if result.mappings
+        else None,
+        error_code=result.error_code,
+        error_message=result.error_message,
+    )
+
+
 def _get_task_runner() -> TaskRunner:
     """Dependency to get TaskRunner. Override in app factory."""
     raise NotImplementedError("TaskRunner not configured")
@@ -69,22 +88,30 @@ def _get_translation_task_service(
     return TranslationTaskService(task_runner=task_runner)
 
 
-@router.post("/translation-tasks", response_model=TaskResult)
+@router.post("/translation-tasks", response_model=TranslationTaskVO)
 async def create_translation_task(
-    request: TranslationTaskRequest,
+    request: CreateTranslationTaskDTO,
     service: TranslationTaskService = Depends(_get_translation_task_service),
-) -> TaskResult:
+) -> TranslationTaskVO:
     """Create and execute a translation task synchronously.
 
     Args:
-        request: Translation task request
+        request: Translation task request DTO
         service: Translation task service
 
     Returns:
-        TaskResult with status, PR info, or error details
+        TranslationTaskVO with status, PR info, or error details
     """
     try:
-        return await service.create_task(request)
+        task_request = TranslationTaskRequest(
+            installation_id=request.installation_id,
+            repository=request.repository,
+            base_branch=request.base_branch,
+            files=request.files,
+            language=request.language,
+        )
+        result = await service.create_task(task_request)
+        return _to_translation_task_vo(result)
     except UnsupportedLanguageError as e:
         raise HTTPException(
             status_code=400,
