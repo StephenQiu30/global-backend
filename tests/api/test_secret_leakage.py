@@ -8,6 +8,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+from app.services.github_app import RepositoryInfo
+
 
 SENSITIVE_KEYWORDS = [
     "token",
@@ -85,6 +87,11 @@ class TestResolveRepositorySecretLeakage:
         with patch("app.api.repositories.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.return_value = True
+            mock_client.get_repository_info.return_value = RepositoryInfo(
+                full_name="owner/repo",
+                default_branch="main",
+                private=True,
+            )
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "owner/repo", "installation_id": 12345},

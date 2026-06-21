@@ -15,7 +15,7 @@ def client():
     """Create test client."""
     from fastapi import FastAPI
     app = FastAPI()
-    app.include_router(router)
+    app.include_router(router, prefix="/api")
     return TestClient(app)
 
 
@@ -24,6 +24,12 @@ def mock_github_client():
     """Mock GitHub client for all tests."""
     mock_client = MagicMock()
     mock_client.is_repository_authorized.return_value = True
+    mock_client.get_repository_info.return_value = MagicMock(
+        default_branch="main",
+        private=True,
+        full_name="test-owner/test-repo",
+    )
+    mock_client.get_repository_tree.return_value = []
     with patch("app.api.repositories.get_github_client") as mock_func:
         mock_func.return_value = mock_client
         yield mock_client
@@ -35,16 +41,12 @@ class TestGetMarkdownFiles:
 
     def test_missing_installation_id(self, client, mock_github_client):
         """GIVEN no installation_id THEN returns 404 repository_not_installed."""
-        mock_github_client.is_repository_authorized.return_value = False
         response = client.get("/api/repositories/test-owner/test-repo/markdown-files")
 
         assert response.status_code == 404
         data = response.json()
         assert data["detail"]["error"] == "repository_not_installed"
-        mock_github_client.is_repository_authorized.assert_called_once_with(
-            installation_id=None,
-            full_name="test-owner/test-repo",
-        )
+        mock_github_client.is_repository_authorized.assert_not_called()
 
     @patch("app.api.repositories.discover_markdown_files")
     def test_empty_repository(self, mock_discover, client):
@@ -53,7 +55,7 @@ class TestGetMarkdownFiles:
 
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123"}
+            params={"installation_id": "12345"}
         )
 
         assert response.status_code == 200
@@ -85,7 +87,7 @@ class TestGetMarkdownFiles:
 
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123"}
+            params={"installation_id": "12345"}
         )
 
         assert response.status_code == 200
@@ -112,7 +114,7 @@ class TestGetMarkdownFiles:
 
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123", "language": "ja"}
+            params={"installation_id": "12345", "language": "ja"}
         )
 
         assert response.status_code == 200
@@ -136,7 +138,7 @@ class TestGetMarkdownFiles:
 
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123"}
+            params={"installation_id": "12345"}
         )
 
         assert response.status_code == 200
@@ -162,7 +164,7 @@ class TestGetMarkdownFiles:
         # The endpoint now calls validate_selection, so this will return 400
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123"}
+            params={"installation_id": "12345"}
         )
 
         assert response.status_code == 400
@@ -186,7 +188,7 @@ class TestGetMarkdownFiles:
 
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123"}
+            params={"installation_id": "12345"}
         )
 
         assert response.status_code == 200
@@ -221,7 +223,7 @@ class TestGetMarkdownFiles:
 
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
-            params={"installation_id": "test-install-123"}
+            params={"installation_id": "12345"}
         )
 
         assert response.status_code == 400

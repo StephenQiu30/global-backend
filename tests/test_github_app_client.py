@@ -1,35 +1,32 @@
+import httpx
 import pytest
-from unittest.mock import MagicMock, patch
+import respx
 
 from app.services.github_app import GitHubAppClient
 
 
 @pytest.fixture
-def mock_app_auth():
-    with patch("app.services.github_app.AppAuth") as mock:
-        yield mock
+def client():
+    return GitHubAppClient(
+        app_id="12345",
+        private_key="test-key",
+        token_provider=lambda _installation_id: "installation-token",
+    )
 
 
-@pytest.fixture
-def mock_integration():
-    with patch("app.services.github_app.GithubIntegration") as mock:
-        yield mock
-
-
-@pytest.fixture
-def client(mock_app_auth, mock_integration):
-    return GitHubAppClient(app_id=12345, private_key="test-key")
-
-
-def test_get_installation_returns_account_info(client, mock_integration):
+@respx.mock
+def test_get_installation_returns_account_info(client):
     """Client must return installation account info from GitHub API."""
-    mock_installation = MagicMock()
-    mock_installation.id = 67890
-    mock_installation.account.login = "test-org"
-    mock_installation.account.type = "Organization"
-    mock_installation.repository_selection = "all"
-
-    mock_integration.return_value.get_app_installation.return_value = mock_installation
+    respx.get("https://api.github.com/app/installations/67890").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "id": 67890,
+                "account": {"login": "test-org", "type": "Organization"},
+                "repository_selection": "all",
+            },
+        )
+    )
 
     result = client.get_installation(67890)
 
@@ -39,34 +36,39 @@ def test_get_installation_returns_account_info(client, mock_integration):
     assert result.repository_selection == "all"
 
 
-def test_get_installation_raises_on_not_found(client, mock_integration):
+@respx.mock
+def test_get_installation_raises_on_not_found(client):
     """Client must raise when installation not found."""
-    from github import GithubException
-
-    mock_integration.return_value.get_app_installation.side_effect = GithubException(
-        404, "Not Found", {}
+    respx.get("https://api.github.com/app/installations/99999").mock(
+        return_value=httpx.Response(404, json={"message": "Not Found"})
     )
 
     with pytest.raises(ValueError, match="not found"):
         client.get_installation(99999)
 
 
-def test_get_installation_repos_returns_list(client, mock_integration):
+@respx.mock
+def test_get_installation_repos_returns_list(client):
     """Client must return list of authorized repositories."""
-    mock_repo1 = MagicMock()
-    mock_repo1.full_name = "org/repo1"
-    mock_repo1.default_branch = "main"
-    mock_repo1.private = True
-
-    mock_repo2 = MagicMock()
-    mock_repo2.full_name = "org/repo2"
-    mock_repo2.default_branch = "main"
-    mock_repo2.private = False
-
-    mock_installation = MagicMock()
-    mock_installation.get_repos.return_value = [mock_repo1, mock_repo2]
-
-    mock_integration.return_value.get_app_installation.return_value = mock_installation
+    respx.get("https://api.github.com/installation/repositories").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "repositories": [
+                    {
+                        "full_name": "org/repo1",
+                        "default_branch": "main",
+                        "private": True,
+                    },
+                    {
+                        "full_name": "org/repo2",
+                        "default_branch": "main",
+                        "private": False,
+                    },
+                ]
+            },
+        )
+    )
 
     result = client.get_installation_repos(67890)
 
@@ -78,12 +80,12 @@ def test_get_installation_repos_returns_list(client, mock_integration):
     assert result[1].private is False
 
 
-def test_get_installation_repos_empty_list(client, mock_integration):
+@respx.mock
+def test_get_installation_repos_empty_list(client):
     """Client must return empty list when no repos authorized."""
-    mock_installation = MagicMock()
-    mock_installation.get_repos.return_value = []
-
-    mock_integration.return_value.get_app_installation.return_value = mock_installation
+    respx.get("https://api.github.com/installation/repositories").mock(
+        return_value=httpx.Response(200, json={"repositories": []})
+    )
 
     result = client.get_installation_repos(67890)
 

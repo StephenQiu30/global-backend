@@ -7,11 +7,11 @@
 - Create: `tests/services/test_markdown_fidelity.py`
 
 **Steps:**
-- [ ] Write failing tests proving code blocks, inline code, URLs, and image URLs are removed from translatable text
-- [ ] Implement `ProtectedMarkdown` dataclass
-- [ ] Implement `protect_markdown(source)` with core regex patterns
-- [ ] Implement `restore_markdown(translated, placeholders)`
-- [ ] Verify tests pass
+- [x] Write failing tests proving code blocks, inline code, URLs, and image URLs are removed from translatable text
+- [x] Implement `ProtectedMarkdown` dataclass
+- [x] Implement `protect_markdown(source)` with core regex patterns
+- [x] Implement `restore_markdown(translated, placeholders)`
+- [x] Verify tests pass
 
 **Acceptance:**
 - Protected spans round-trip exactly after restore
@@ -23,10 +23,10 @@
 - Create: `tests/services/test_markdown_fidelity_frontmatter_tables.py`
 
 **Steps:**
-- [ ] Write failing test for YAML frontmatter preserving keys
-- [ ] Write failing test for Markdown table separator row preservation
-- [ ] Extend protection rules for frontmatter and table separators
-- [ ] Verify tests pass
+- [x] Write failing test for YAML frontmatter preserving keys
+- [x] Write failing test for Markdown table separator row preservation
+- [x] Extend protection rules for frontmatter and table separators
+- [x] Verify tests pass
 
 **Acceptance:**
 - Frontmatter keys and table separator rows are not translated or corrupted
@@ -38,10 +38,10 @@
 - Create: `tests/services/test_openai_translation_provider.py`
 
 **Steps:**
-- [ ] Write failing test that provider prompt includes required constraints
-- [ ] Implement `OpenAITranslationProvider` with protect/restore integration
-- [ ] Mock OpenAI client in tests
-- [ ] Verify tests pass
+- [x] Write failing test that provider prompt includes required constraints
+- [x] Implement `OpenAITranslationProvider` with protect/restore integration
+- [x] Mock OpenAI client in tests
+- [x] Verify tests pass
 
 **Acceptance:**
 - Provider prompts enforce Markdown fidelity constraints
@@ -53,9 +53,9 @@
 - Create: `tests/services/test_markdown_fidelity_regression.py`
 
 **Steps:**
-- [ ] Add fixture containing headings, code block, inline code, links, image, table, frontmatter, and blockquote
-- [ ] Write regression test that placeholder restore returns original protected spans
-- [ ] Verify tests pass
+- [x] Add fixture containing headings, code block, inline code, links, image, table, frontmatter, and blockquote
+- [x] Write regression test that placeholder restore returns original protected spans
+- [x] Verify tests pass
 
 **Acceptance:**
 - Future provider changes cannot silently break common Markdown structures

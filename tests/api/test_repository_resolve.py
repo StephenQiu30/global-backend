@@ -2,6 +2,17 @@ from unittest.mock import patch
 
 import pytest
 
+from app.services.github_app import RepositoryInfo
+
+
+def mock_authorized_repository(mock_client, full_name="owner/repo", branch="main", private=True):
+    mock_client.is_repository_authorized.return_value = True
+    mock_client.get_repository_info.return_value = RepositoryInfo(
+        full_name=full_name,
+        default_branch=branch,
+        private=private,
+    )
+
 
 class TestRepositoryResolve:
     """Tests for POST /api/repositories/resolve endpoint."""
@@ -12,7 +23,7 @@ class TestRepositoryResolve:
             "app.api.repositories.get_github_client"
         ) as mock_get_client:
             mock_client = mock_get_client.return_value
-            mock_client.is_repository_authorized.return_value = True
+            mock_authorized_repository(mock_client)
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "owner/repo", "installation_id": 12345},
@@ -72,7 +83,7 @@ class TestRepositoryResolve:
             "app.api.repositories.get_github_client"
         ) as mock_get_client:
             mock_client = mock_get_client.return_value
-            mock_client.is_repository_authorized.return_value = True
+            mock_authorized_repository(mock_client)
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "https://github.com/owner/repo", "installation_id": 12345},

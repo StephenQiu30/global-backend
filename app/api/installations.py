@@ -32,7 +32,7 @@ def get_github_client() -> GitHubAppClient:
     settings = Settings()
     return GitHubAppClient(
         app_id=settings.github_app_id,
-        private_key=settings.github_app_private_key,
+        private_key=settings.github_private_key,
     )
 
 

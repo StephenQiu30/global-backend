@@ -166,6 +166,18 @@ class TestDiscoverMarkdownFiles:
         assert len(result) == 1
         assert result[0].path == 'README.md'
 
+    def test_target_exists_when_preview_path_in_tree(self):
+        """GIVEN target translation path exists in tree THEN target_exists is True."""
+        tree = [
+            self._make_tree_item("README.md", 512),
+            self._make_tree_item("README.zh-CN.md", 600),
+        ]
+        result = discover_markdown_files(tree, language="zh-CN")
+
+        assert len(result) == 1
+        assert result[0].target_path_preview == "README.zh-CN.md"
+        assert result[0].target_exists is True
+
     def test_full_scenario(self):
         """GIVEN a realistic tree THEN correct files are discovered and sorted."""
         tree = [

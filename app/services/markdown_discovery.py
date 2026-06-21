@@ -27,28 +27,22 @@ class MarkdownFileInfo:
     target_exists: bool
 
 
-async def get_repository_tree(
+def get_repository_tree(
     owner: str,
     repo: str,
     branch: str,
-    installation_id: str,
-    github_client=None,
+    installation_id: int | str,
+    github_client,
 ) -> List[dict]:
-    """Fetch repository tree from GitHub API.
+    """Fetch repository tree from GitHub API."""
+    if github_client is None:
+        raise ValueError("github_client is required")
 
-    Args:
-        owner: Repository owner
-        repo: Repository name
-        branch: Branch to scan
-        installation_id: GitHub App installation ID
-        github_client: Optional GitHub client for testing
-
-    Returns:
-        List of tree items with path, size, and type
-    """
-    # This would use the actual GitHub API in production
-    # For now, return empty list - will be mocked in tests
-    return []
+    return github_client.get_repository_tree(
+        installation_id=installation_id,
+        full_name=f"{owner}/{repo}",
+        branch=branch,
+    )
 
 
 def discover_markdown_files(
@@ -67,6 +61,11 @@ def discover_markdown_files(
         List of MarkdownFileInfo for eligible files
     """
     eligible_files = []
+    tree_paths = {
+        item.get("path")
+        for item in tree_items
+        if item.get("type") == "blob" and item.get("path")
+    }
 
     for item in tree_items:
         path = item.get('path', '')
@@ -99,8 +98,8 @@ def discover_markdown_files(
         # Generate target path preview
         target_path = target_translation_path(path, language)
 
-        # Check if target already exists (simplified - would need tree lookup)
-        target_exists = False
+        # Check if target already exists in repository tree
+        target_exists = target_path in tree_paths
 
         # Determine disabled reason
         disabled_reason = None

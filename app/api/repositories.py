@@ -8,9 +8,12 @@ from pydantic import BaseModel
 from app.api.installations import get_github_client
 from app.domain.markdown_files import validate_selection
 from app.domain.repository import parse_repository_input
-from app.services.markdown_discovery import discover_markdown_files, MarkdownFileInfo
+from app.services.markdown_discovery import (
+    discover_markdown_files,
+    get_repository_tree,
+)
 
-router = APIRouter(prefix="/api/repositories", tags=["repositories"])
+router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
 class ResolveRequest(BaseModel):
@@ -74,10 +77,16 @@ def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
             detail={"error": "repository_not_installed"},
         )
 
+    repo_info = client.get_repository_info(
+        installation_id=request.installation_id,
+        full_name=ref.full_name,
+    )
+    default_branch = repo_info.default_branch if repo_info else "main"
+
     return {
         "full_name": ref.full_name,
-        "default_branch": "main",
-        "private": True,
+        "default_branch": default_branch,
+        "private": repo_info.private if repo_info else True,
     }
 
 
@@ -102,10 +111,26 @@ async def get_markdown_files(
     Raises:
         HTTPException: If repository is not authorized or selection limits exceeded
     """
-    # Verify repository authorization
+    if installation_id is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "repository_not_installed",
+                "message": "Repository is not authorized",
+            },
+        )
+
+    try:
+        parsed_installation_id = int(installation_id)
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "invalid_installation_id", "message": "installation_id must be an integer"},
+        )
+
     client = get_github_client()
     is_authorized = client.is_repository_authorized(
-        installation_id=installation_id,
+        installation_id=parsed_installation_id,
         full_name=f"{owner}/{repo}",
     )
 
@@ -115,13 +140,28 @@ async def get_markdown_files(
             detail={"error": "repository_not_installed", "message": "Repository is not authorized"}
         )
 
-    # Fetch repository tree from GitHub
-    # TODO: Replace with actual get_repository_tree call when GitHub App integration is complete.
-    # This is deferred because the endpoint is primarily for discovering available files,
-    # and the actual tree fetching will be implemented in a follow-up task.
-    tree_items = []  # Would be fetched from GitHub
+    repo_info = client.get_repository_info(parsed_installation_id, f"{owner}/{repo}")
+    branch = repo_info.default_branch if repo_info else "main"
 
-    # Discover eligible Markdown files
+    try:
+        tree_items = get_repository_tree(
+            owner=owner,
+            repo=repo,
+            branch=branch,
+            installation_id=parsed_installation_id,
+            github_client=client,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "repository_not_found", "message": "Repository tree not found"},
+        )
+    except RuntimeError:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "github_api_error", "message": "GitHub API error"},
+        )
+
     files = discover_markdown_files(tree_items, language=language)
 
     # Convert to dict format for validation

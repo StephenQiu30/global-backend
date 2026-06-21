@@ -125,12 +125,55 @@ class GitHubAppClient:
         ]
 
     def is_repository_authorized(
-        self, installation_id: int, full_name: str
+        self, installation_id: int | str | None, full_name: str
     ) -> bool:
         """Check if a repository is authorized for an installation."""
+        if installation_id is None:
+            return False
+        installation_id = int(installation_id)
         repos = self.get_installation_repos(installation_id)
         normalized_target = full_name.lower()
         return any(repo.full_name.lower() == normalized_target for repo in repos)
+
+    def get_repository_info(
+        self, installation_id: int | str, full_name: str
+    ) -> RepositoryInfo | None:
+        """Return repository metadata for an authorized installation repo."""
+        installation_id = int(installation_id)
+        normalized_target = full_name.lower()
+        for repo in self.get_installation_repos(installation_id):
+            if repo.full_name.lower() == normalized_target:
+                return repo
+        return None
+
+    def get_repository_tree(
+        self,
+        installation_id: int | str,
+        full_name: str,
+        branch: str,
+    ) -> list[dict[str, Any]]:
+        """Fetch recursive repository tree blobs for markdown discovery."""
+        installation_id = int(installation_id)
+        token = self._get_token(installation_id)
+        headers = self._headers(token)
+
+        resp = httpx.get(
+            f"{GITHUB_API}/repos/{full_name}/git/trees/{branch}",
+            headers=headers,
+            params={"recursive": "1"},
+        )
+        if resp.status_code == 404:
+            raise ValueError(f"Repository tree not found for {full_name}@{branch}")
+        resp.raise_for_status()
+
+        return [
+            {
+                "path": item.get("path", ""),
+                "size": item.get("size") or 0,
+                "type": item.get("type", ""),
+            }
+            for item in resp.json().get("tree", [])
+        ]
 
     # --- Write operations (branch, file, PR) ---
 
