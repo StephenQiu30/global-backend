@@ -9,7 +9,8 @@ from typing import Any
 import httpx
 import jwt
 
-from app.core.errors import AppError
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 
 GITHUB_API = "https://api.github.com"
 
@@ -90,7 +91,11 @@ class GitHubAppClient:
             headers=headers,
         )
         if resp.status_code == 404:
-            raise ValueError(f"Installation {installation_id} not found")
+            raise AppException(
+                code=ErrorCode.INSTALLATION_NOT_FOUND,
+                message=f"Installation {installation_id} not found",
+                http_status=404,
+            )
         resp.raise_for_status()
 
         data = resp.json()
@@ -111,7 +116,11 @@ class GitHubAppClient:
             headers=headers,
         )
         if resp.status_code == 404:
-            raise ValueError(f"Installation {installation_id} not found")
+            raise AppException(
+                code=ErrorCode.INSTALLATION_NOT_FOUND,
+                message=f"Installation {installation_id} not found",
+                http_status=404,
+            )
         resp.raise_for_status()
 
         data = resp.json()
@@ -163,7 +172,11 @@ class GitHubAppClient:
             params={"recursive": "1"},
         )
         if resp.status_code == 404:
-            raise ValueError(f"Repository tree not found for {full_name}@{branch}")
+            raise AppException(
+                code=ErrorCode.REPOSITORY_NOT_FOUND,
+                message=f"Repository tree not found for {full_name}@{branch}",
+                http_status=404,
+            )
         resp.raise_for_status()
 
         return [
@@ -276,7 +289,11 @@ class GitHubAppClient:
             prs = list_resp.json()
             if prs:
                 return {"number": prs[0]["number"], "url": prs[0]["html_url"]}
-            raise AppError("pr_create_failed", "Could not create or find PR")
+            raise AppException(
+                code=ErrorCode.GITHUB_API_ERROR,
+                message="Could not create or find PR",
+                http_status=502,
+            )
 
         create_resp.raise_for_status()
         data = create_resp.json()
