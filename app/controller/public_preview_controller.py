@@ -1,28 +1,13 @@
 """Controller for public repository preview endpoint."""
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
+from app.dto.translation_task import CreatePublicPreviewRequest
 from app.services.public_repository import PublicPreviewService, PublicPreviewResult
+from app.vo.error_vo import CodeMessageErrorVO
+from app.vo.translation_task_vo import FilePreviewVO, PublicPreviewVO
 
 router = APIRouter(tags=["public-preview"])
-
-
-class PublicPreviewRequest(BaseModel):
-    """Request model for POST /api/public-preview."""
-
-    repository: str = Field(..., min_length=1)
-    files: List[str] = Field(..., min_length=1)
-    language: str = Field(..., min_length=1)
-
-
-class ErrorResponse(BaseModel):
-    """Structured error response."""
-
-    error_code: str
-    message: str
 
 
 def _get_public_preview_service() -> PublicPreviewService:
@@ -30,37 +15,45 @@ def _get_public_preview_service() -> PublicPreviewService:
     raise NotImplementedError("PublicPreviewService not configured")
 
 
+def _to_public_preview_vo(result: PublicPreviewResult) -> PublicPreviewVO:
+    """Map service result to API response VO."""
+    return PublicPreviewVO(
+        previews=[
+            FilePreviewVO(
+                source_path=preview.source_path,
+                target_path=preview.target_path,
+                translated_content=preview.translated_content,
+                status="translated",
+            )
+            for preview in result.previews
+        ]
+    )
+
+
 @router.post(
     "/public-preview",
-    response_model=PublicPreviewResult,
+    response_model=PublicPreviewVO,
     operation_id="create_public_preview",
     responses={
-        400: {"model": ErrorResponse, "description": "Validation error"},
-        404: {"model": ErrorResponse, "description": "Repository not found"},
-        429: {"model": ErrorResponse, "description": "Rate limited"},
-        502: {"model": ErrorResponse, "description": "Translation or GitHub error"},
+        400: {"model": CodeMessageErrorVO, "description": "Validation error"},
+        404: {"model": CodeMessageErrorVO, "description": "Repository not found"},
+        429: {"model": CodeMessageErrorVO, "description": "Rate limited"},
+        502: {"model": CodeMessageErrorVO, "description": "Translation or GitHub error"},
     },
 )
 async def create_public_preview(
-    request: PublicPreviewRequest,
+    request: CreatePublicPreviewRequest,
     service: PublicPreviewService = Depends(_get_public_preview_service),
-) -> PublicPreviewResult:
-    """Create a read-only translation preview for a public repository.
-
-    Args:
-        request: Public preview request
-        service: Public preview service
-
-    Returns:
-        PublicPreviewResult with translated previews (no PR URL)
-    """
+) -> PublicPreviewVO:
+    """Create a read-only translation preview for a public repository."""
     try:
-        return await service.preview(
+        result = await service.preview(
             repository=request.repository,
             branch="main",
             files=request.files,
             language=request.language,
         )
+        return _to_public_preview_vo(result)
     except ValueError as e:
         msg = str(e).lower()
         if "not found" in msg:

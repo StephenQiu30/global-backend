@@ -4,118 +4,74 @@
 
 系统 SHALL 提供 `app/dto/` 包，包含：
 - `__init__.py`：包初始化
-- `installation_dto.py`：安装相关请求 DTO
-- `translation_task_dto.py`：翻译任务和公共预览请求 DTO
+- `installation.py`：安装相关请求 Request
+- `repository.py`：仓库解析与 Markdown 发现请求 Request
+- `translation_task.py`：翻译任务和公共预览请求 Request
 
-### Requirement 2: 安装验证 DTO
+入参类名以 `Request` 结尾，表示 API 请求参数 DTO。
 
-`app/dto/installation_dto.py` SHALL 定义：
-- `VerifyInstallationDTO(BaseModel)`：字段 `installation_id: int`
-- 名称以 `DTO` 结尾
+### Requirement 2: 安装验证 Request
 
-### Requirement 3: 翻译任务 DTO
+`app/dto/installation.py` SHALL 定义：
+- `VerifyInstallationRequest(BaseModel)`：字段 `installation_id: int`
+- `ListInstallationRepositoriesRequest(BaseModel)`：字段 `installation_id: int`
+- 名称以 `Request` 结尾，字段含 `Field(description=...)`
 
-`app/dto/translation_task_dto.py` SHALL 定义：
-- `CreateTranslationTaskDTO(BaseModel)`：
-  - `installation_id: str`（min_length=1）
-  - `repository: str`（min_length=1）
-  - `base_branch: str`（min_length=1）
-  - `files: List[str]`（min_length=1）
-  - `language: str`（min_length=1）
-- `CreatePublicPreviewDTO(BaseModel)`：
-  - `repository: str`（min_length=1）
-  - `files: List[str]`（min_length=1）
-  - `language: str`（min_length=1）
-- 名称以 `DTO` 结尾
+### Requirement 3: 仓库相关 Request
+
+`app/dto/repository.py` SHALL 定义：
+- `ResolveRepositoryRequest(BaseModel)`：字段 `input: str`, `installation_id: int`
+- `GetMarkdownFilesRequest(BaseModel)`：字段 `language: str`, `installation_id: str | None`
+- 名称以 `Request` 结尾
+
+### Requirement 4: 翻译任务 Request
+
+`app/dto/translation_task.py` SHALL 定义：
+- `CreateTranslationTaskRequest(BaseModel)`
+- `CreatePublicPreviewRequest(BaseModel)`
+- `GetTranslationTaskStatusRequest(BaseModel)`：字段 `task_id: str`
+- `GetTranslationTaskFilePreviewsRequest(BaseModel)`：字段 `task_id: str`
+- 名称以 `Request` 结尾
 
 ## VO 模块 (`app/vo/`)
 
-### Requirement 4: VO 包结构
+### Requirement 5: VO 包结构
 
-系统 SHALL 提供 `app/vo/` 包，包含：
-- `__init__.py`：包初始化
-- `installation_vo.py`：安装相关响应 VO
-- `translation_task_vo.py`：翻译任务和公共预览响应 VO
+系统 SHALL 提供 `app/vo/` 包，出参类名以 `VO` 结尾。
 
-### Requirement 5: 安装验证 VO
+### Requirement 6: 安装验证 VO
 
-`app/vo/installation_vo.py` SHALL 定义：
-- `InstallationVO(BaseModel)`：
-  - `installation_id: int`
-  - `account_login: str`
-  - `account_type: str`
-  - `repository_selection: str`
-- `RepositoryItemVO(BaseModel)`：
-  - `full_name: str`
-  - `default_branch: str`
-  - `private: bool`
-- `RepositoryListVO(BaseModel)`：
-  - `repositories: list[RepositoryItemVO]`
-- 名称以 `VO` 结尾
+`app/vo/installation_vo.py` SHALL 定义 `InstallationVO`, `RepositoryItemVO`, `RepositoryListVO`。
 
-### Requirement 6: 翻译任务 VO
+### Requirement 7: 翻译任务 VO
 
-`app/vo/translation_task_vo.py` SHALL 定义：
-- `FileMappingVO(BaseModel)`：
-  - `source_path: str`
-  - `target_path: str`
-- `TranslationTaskVO(BaseModel)`：
-  - `status: str`
-  - `pr_url: str | None`
-  - `pr_number: int | None`
-  - `mappings: list[FileMappingVO] | None`
-  - `error_code: str | None`
-  - `error_message: str | None`
-- `FilePreviewVO(BaseModel)`：
-  - `source_path: str`
-  - `target_path: str`
-  - `translated_content: str`
-- `PublicPreviewVO(BaseModel)`：
-  - `previews: list[FilePreviewVO]`
-- 名称以 `VO` 结尾
+`app/vo/translation_task_vo.py` SHALL 定义 `TranslationTaskVO`, `FilePreviewVO`, `PublicPreviewVO` 等响应 VO。
 
 ## 控制器集成
 
-### Requirement 7: 控制器导入规范
+### Requirement 8: 控制器导入规范
 
 控制器 SHALL 从 `app/dto/` 导入所有请求模型，从 `app/vo/` 导入所有响应模型。
-控制器 SHALL NOT 内联定义 Pydantic 模型。
-控制器 SHALL NOT 从 `app/domain/` 或 `app/services/` 导入模型用于响应序列化。
+GET 端点 SHALL 通过 `Depends()` 或 `Annotated[..., Query()]` 注入 Request 模型。
 
-### Requirement 8: 安装控制器迁移
+### Requirement 9: 安装控制器
 
-`app/api/installations.py` SHALL：
-- 从 `app.dto.installation_dto` 导入 `VerifyInstallationDTO`
-- 从 `app.vo.installation_vo` 导入 `InstallationVO`, `RepositoryItemVO`, `RepositoryListVO`
-- 移除内联定义的 `VerifyRequest`, `InstallationResponse`, `RepositoryItem`, `RepositoryListResponse`
+`app/controller/installation_controller.py` SHALL 从 `app.dto.installation` 导入 Request 类。
 
-### Requirement 9: 翻译任务控制器迁移
+### Requirement 10: 翻译任务控制器
 
-`app/api/tasks.py` SHALL：
-- 从 `app.dto.translation_task_dto` 导入 `CreateTranslationTaskDTO`
-- 从 `app.vo.translation_task_vo` 导入 `TranslationTaskVO`
-- 移除内联定义的 `TranslationTaskRequest`
-- 将 `TaskResult` 转换为 `TranslationTaskVO` 返回
+`app/controller/translation_task_controller.py` SHALL 从 `app.dto.translation_task` 导入 Request 类。
 
-### Requirement 10: 公共预览控制器迁移
+### Requirement 11: 公共预览控制器
 
-`app/api/public_preview.py` SHALL：
-- 从 `app.dto.translation_task_dto` 导入 `CreatePublicPreviewDTO`
-- 从 `app.vo.translation_task_vo` 导入 `PublicPreviewVO`
-- 移除内联定义的 `PublicPreviewRequest`, `ErrorResponse`
-- 将 `PublicPreviewResult` 转换为 `PublicPreviewVO` 返回
+`app/controller/public_preview_controller.py` SHALL 从 `app.dto.translation_task` 导入 `CreatePublicPreviewRequest`。
 
 ## 测试要求
 
-### Requirement 11: DTO 测试
+### Requirement 12: DTO 测试
 
-`tests/dto/test_translation_task_dto.py` SHALL 验证：
-- `CreateTranslationTaskDTO` 字段校验（必填、min_length）
-- `CreatePublicPreviewDTO` 字段校验
+`tests/dto/` SHALL 验证 Request 字段校验。
 
-### Requirement 12: VO 测试
+### Requirement 13: VO 测试
 
-`tests/vo/test_translation_task_vo.py` SHALL 验证：
-- `TranslationTaskVO` 序列化输出
-- `PublicPreviewVO` 序列化输出
-- VO 不包含 ORM Model 引用
+`tests/vo/` SHALL 验证 VO 序列化输出。

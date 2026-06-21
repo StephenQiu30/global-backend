@@ -82,7 +82,7 @@ Repository 方法 SHALL 遵循以下命名约定：
 
 ### Requirement 9: Controller 分层架构
 
-系统 SHALL 使用 `app/controller/` 作为 API 层，替代当前 `app/api/` 直接路由模式。
+系统 SHALL 使用 `app/controller/` 作为唯一 HTTP API 层。
 
 - 每个业务域 SHALL 对应一个 controller 模块
 - Controller SHALL 定义 FastAPI Router 和端点

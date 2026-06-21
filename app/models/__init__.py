@@ -2,7 +2,7 @@
 
 from app.models.installation_account import InstallationAccountModel
 from app.models.translation_task import TranslationTaskModel
-from app.models.translation_file_model import TranslationFileModel
+from app.models.translation_file import TranslationFileModel
 
 __all__ = [
     "InstallationAccountModel",

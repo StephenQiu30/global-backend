@@ -1,0 +1,4 @@
+- [x] 1.1 迁移 `app/requests/` → `app/dto/`
+- [x] 1.2 更新 controller / test import
+- [x] 1.3 更新 README 与基线 spec
+- [x] 1.4 运行 pytest 并归档 change

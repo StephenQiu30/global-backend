@@ -65,22 +65,22 @@ cp .env.example .env
 | `GITHUB_PRIVATE_KEY` | GitHub App 私钥（PEM，可用 `\n` 转义单行） |
 | `GITHUB_WEBHOOK_SECRET` | Webhook 密钥（如暂未接 webhook 可留空） |
 | `OPENAI_API_KEY` | OpenAI API Key（启用真实翻译时需要） |
-| `DATABASE_URL` | PostgreSQL 连接串，默认 `postgresql+psycopg://postgres:postgres@localhost:5432/global_backend` |
-| `REDIS_URL` | Redis 连接串，默认 `redis://localhost:6379/0` |
-| `RQ_QUEUE_NAME` | RQ 队列名称，默认 `default` |
+| `DATABASE_URL` | PostgreSQL 连接串（见 `.env.example`） |
+| `REDIS_URL` | Redis 连接串（见 `.env.example`） |
+| `RQ_QUEUE_NAME` | RQ 队列名称（见 `.env.example`） |
 
 Symphony / Linear 相关变量见 `.env.example` 注释，仅 Agent 工作流需要。
 
 ### 3. 初始化数据库
 
-本地需运行 PostgreSQL 与 Redis。首次启动前执行 schema：
+本地需运行 PostgreSQL 与 Redis。表结构以 `app/models/` 为唯一来源，首次启动前执行：
 
 ```bash
-createdb global_backend  # 如尚未创建
-psql postgresql://postgres:postgres@localhost:5432/global_backend -f db/schema/postgresql.sql
+createdb translation  # 如尚未创建
+python scripts/init_db.py
 ```
 
-详见 [db/schema/README.md](db/schema/README.md)。
+`scripts/init_db.py` 读取 `.env` 中的 `DATABASE_URL`，通过 SQLAlchemy `create_all` 同步 ORM 定义到数据库。
 
 ### 4. 启动服务
 
@@ -99,17 +99,14 @@ pytest tests/ -v
 ```text
 app/
   controller/    # HTTP 接口（FastAPI routers）
-  application/   # 用例编排
   domain/        # 领域模型与规则
-  dto/ / vo/     # 入参 / 出参 Schema
-  models/        # SQLAlchemy ORM
+  dto/ / vo/     # 入参 Request DTO / 出参 VO Schema
+  models/        # SQLAlchemy ORM（数据库结构唯一来源）
   repositories/  # 数据访问
-  db/            # Engine 与 Session
-  services/      # GitHub、翻译等外部客户端
+  db/            # Engine、Session 与 schema 初始化
+  services/      # 用例编排与外部客户端
   queues/        # RQ 队列适配
   workers/       # 后台任务入口
-db/
-  schema/        # PostgreSQL DDL（postgresql.sql）
 docs/
   prd/           # 产品需求
   plans/         # 实现计划
@@ -123,7 +120,6 @@ tests/           # 单元与 API 测试
 - 产品总览：[docs/prd/github-translator/00-product-overview.md](docs/prd/github-translator/00-product-overview.md)
 - PRD 索引：[docs/prd/github-translator/README.md](docs/prd/github-translator/README.md)
 - 实现计划：[docs/plans/github-translator/README.md](docs/plans/github-translator/README.md)
-- 数据库 Schema：[db/schema/README.md](db/schema/README.md)
 - 后端架构说明：[docs/design/backend-engineering-architecture-review.md](docs/design/backend-engineering-architecture-review.md)
 - 本地开发与运维：[docs/operations/local-development.md](docs/operations/local-development.md)
 

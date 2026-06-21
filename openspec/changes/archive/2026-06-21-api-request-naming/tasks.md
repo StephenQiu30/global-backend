@@ -1,0 +1,6 @@
+- [x] 1.1 创建 `app/requests/` 并重命名 POST Request 类
+- [x] 1.2 新增 GET 端点 Request 封装
+- [x] 1.3 更新 controller 导入与 handler 签名
+- [x] 1.4 迁移 `tests/requests/` 并删除 `app/dto/`
+- [x] 1.5 更新 README 与 OpenSpec 基线 spec
+- [x] 1.6 运行 `pytest -q` 验证（486 passed）

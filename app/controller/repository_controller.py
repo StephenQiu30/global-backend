@@ -1,58 +1,38 @@
 """Controller for repository discovery and authorization endpoints."""
 
-from typing import Any, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
 
-from app.controller.installation_controller import get_github_client
+from app.core.github import get_github_client
 from app.domain.markdown_files import validate_selection
 from app.domain.repository import parse_repository_input
+from app.dto.repository import (
+    GetMarkdownFilesRequest,
+    ResolveRepositoryRequest,
+)
 from app.services.markdown_discovery import (
     discover_markdown_files,
     get_repository_tree,
 )
+from app.vo.error_vo import SimpleErrorVO
+from app.vo.repository_vo import MarkdownFileVO, ResolveRepositoryVO
 
 router = APIRouter(prefix="/repositories", tags=["repositories"])
 
 
-class ResolveRequest(BaseModel):
-    """Request body for repository resolve."""
-
-    input: str
-    installation_id: int
-
-
-class ResolveResponse(BaseModel):
-    """Response body for successful repository resolve."""
-
-    full_name: str
-    default_branch: str
-    private: bool
-
-
-class ErrorResponse(BaseModel):
-    """Structured error response."""
-
-    error: str
-
-
 @router.post(
     "/resolve",
-    response_model=ResolveResponse,
+    response_model=ResolveRepositoryVO,
     operation_id="resolve_repository",
     responses={
-        400: {"model": ErrorResponse, "description": "Invalid repository URL"},
-        403: {"model": ErrorResponse, "description": "Repository not installed"},
-        502: {"model": ErrorResponse, "description": "GitHub API error"},
+        400: {"model": SimpleErrorVO, "description": "Invalid repository URL"},
+        403: {"model": SimpleErrorVO, "description": "Repository not installed"},
+        502: {"model": SimpleErrorVO, "description": "GitHub API error"},
     },
 )
-def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
-    """Parse and verify repository authorization.
-
-    Parses the repository input, then checks if the repository
-    is authorized for the given GitHub App installation.
-    """
+def resolve_repository(request: ResolveRepositoryRequest) -> ResolveRepositoryVO:
+    """Parse and verify repository authorization."""
     try:
         ref = parse_repository_input(request.input)
     except ValueError:
@@ -85,40 +65,30 @@ def resolve_repository(request: ResolveRequest) -> dict[str, Any]:
     )
     default_branch = repo_info.default_branch if repo_info else "main"
 
-    return {
-        "full_name": ref.full_name,
-        "default_branch": default_branch,
-        "private": repo_info.private if repo_info else True,
-    }
+    return ResolveRepositoryVO(
+        full_name=ref.full_name,
+        default_branch=default_branch,
+        private=repo_info.private if repo_info else True,
+    )
 
 
 @router.get(
     "/{owner}/{repo}/markdown-files",
+    response_model=list[MarkdownFileVO],
     operation_id="get_markdown_files",
     responses={
-        400: {"model": ErrorResponse, "description": "Invalid parameters"},
-        404: {"model": ErrorResponse, "description": "Repository not found"},
-        502: {"model": ErrorResponse, "description": "GitHub API error"},
+        400: {"model": SimpleErrorVO, "description": "Invalid parameters"},
+        404: {"model": SimpleErrorVO, "description": "Repository not found"},
+        502: {"model": SimpleErrorVO, "description": "GitHub API error"},
     },
 )
 async def get_markdown_files(
     owner: str,
     repo: str,
-    language: str = Query(default="zh-CN", description="Target language for path previews"),
-    installation_id: Optional[str] = None,
-) -> list[dict]:
-    """Get eligible Markdown files for a repository.
-
-    Args:
-        owner: Repository owner
-        repo: Repository name
-        language: Target language for path previews (default: zh-CN)
-        installation_id: GitHub App installation ID (from request context)
-
-    Returns:
-        List of eligible Markdown files with metadata
-    """
-    if installation_id is None:
+    request: Annotated[GetMarkdownFilesRequest, Query()],
+) -> list[MarkdownFileVO]:
+    """Get eligible Markdown files for a repository."""
+    if request.installation_id is None:
         raise HTTPException(
             status_code=404,
             detail={
@@ -128,7 +98,7 @@ async def get_markdown_files(
         )
 
     try:
-        parsed_installation_id = int(installation_id)
+        parsed_installation_id = int(request.installation_id)
     except (TypeError, ValueError):
         raise HTTPException(
             status_code=400,
@@ -144,7 +114,7 @@ async def get_markdown_files(
     if not is_authorized:
         raise HTTPException(
             status_code=404,
-            detail={"error": "repository_not_installed", "message": "Repository is not authorized"}
+            detail={"error": "repository_not_installed", "message": "Repository is not authorized"},
         )
 
     repo_info = client.get_repository_info(parsed_installation_id, f"{owner}/{repo}")
@@ -169,26 +139,26 @@ async def get_markdown_files(
             detail={"error": "github_api_error", "message": "GitHub API error"},
         )
 
-    files = discover_markdown_files(tree_items, language=language)
+    files = discover_markdown_files(tree_items, language=request.language)
 
-    file_dicts = [
-        {
-            "path": f.path,
-            "size_bytes": f.size_bytes,
-            "is_default_readme": f.is_default_readme,
-            "is_translated_variant": f.is_translated_variant,
-            "disabled_reason": f.disabled_reason,
-            "target_path_preview": f.target_path_preview,
-            "target_exists": f.target_exists,
-        }
+    file_vos = [
+        MarkdownFileVO(
+            path=f.path,
+            size_bytes=f.size_bytes,
+            is_default_readme=f.is_default_readme,
+            is_translated_variant=f.is_translated_variant,
+            disabled_reason=f.disabled_reason,
+            target_path_preview=f.target_path_preview,
+            target_exists=f.target_exists,
+        )
         for f in files
     ]
 
-    validation_error = validate_selection(file_dicts)
+    validation_error = validate_selection([vo.model_dump() for vo in file_vos])
     if validation_error:
         raise HTTPException(
             status_code=400,
-            detail={"error": "selection_limit_exceeded", "message": validation_error}
+            detail={"error": "selection_limit_exceeded", "message": validation_error},
         )
 
-    return file_dicts
+    return file_vos

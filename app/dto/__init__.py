@@ -1,1 +1,1 @@
-"""Data Transfer Objects for API request input."""
+"""Inbound API request DTOs (XxxRequest)."""

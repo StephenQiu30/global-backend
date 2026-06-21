@@ -52,6 +52,7 @@ class FilePreviewVO(BaseModel):
     source_path: str
     target_path: str
     status: str = "translated"
+    translated_content: Optional[str] = None
 
 
 class TaskNotFoundVO(BaseModel):

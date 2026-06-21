@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from app.models.base import Base
 from app.models.installation_account import InstallationAccountModel
 from app.models.translation_task import TranslationTaskModel
-from app.models.translation_file_model import TranslationFileModel
+from app.models.translation_file import TranslationFileModel
 
 
 @pytest.fixture

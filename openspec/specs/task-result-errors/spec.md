@@ -32,5 +32,5 @@
 
 ## API Error Handler (new)
 
-- `app.api.tasks` SHALL provide a function `map_error_to_response(error: Exception) -> HTTPException` that converts `AppError` to `HTTPException` with safe detail dict.
+- `app.controller.translation_task_controller` SHALL provide a function `map_error_to_response(error: Exception) -> HTTPException` that converts `AppError` to `HTTPException` with safe detail dict.
 - For unknown error codes, the handler SHALL default to `status_code=500` with `error="internal_error"`.

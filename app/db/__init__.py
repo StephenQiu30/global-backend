@@ -1,1 +1,1 @@
-"""Database infrastructure: engine, session, and declarative base."""
+"""Database infrastructure: engine, session, and schema initialization."""

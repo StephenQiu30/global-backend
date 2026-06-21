@@ -30,7 +30,7 @@
 - 当语言代码不支持时抛出
 - 包含安全的错误信息
 
-## Languages API (`app/api/languages.py`)
+## Languages Controller (`app/controller/language_controller.py`)
 
 ### Requirement 5: GET /api/languages
 
@@ -39,7 +39,7 @@
 - 响应格式：`[{"code": "zh-CN", "label": "简体中文"}, ...]`
 - 状态码：200
 
-## Translation Task Integration (`app/api/tasks.py`)
+## Translation Task Controller (`app/controller/translation_task_controller.py`)
 
 ### Requirement 6: 任务创建语言校验
 

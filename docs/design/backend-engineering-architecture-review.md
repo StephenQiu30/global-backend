@@ -178,9 +178,9 @@ queues ──→ (Redis/RQ client only)
 | If you are adding...           | Put it in...         | Example file                          |
 |--------------------------------|----------------------|---------------------------------------|
 | A new API endpoint             | `controller/`        | `translation_task_controller.py`      |
-| Business orchestration logic   | `application/`       | `translation_task_service.py`         |
+| Business orchestration logic   | `services/`          | `translation_task_service.py`         |
 | Business rules or enums        | `domain/`            | `task.py`, `languages.py`             |
-| Inbound request validation     | `dto/`               | `translation_task_dto.py`             |
+| Inbound request validation     | `dto/`               | `translation_task.py`                 |
 | Outbound response shape        | `vo/`                | `translation_task_vo.py`              |
 | A new database table           | `models/`            | `translation_task_model.py`           |
 | Database query logic           | `repositories/`      | `translation_task_repository.py`      |
@@ -191,13 +191,12 @@ queues ──→ (Redis/RQ client only)
 
 ## Controllers Are the Only HTTP Interface
 
-All HTTP endpoint definitions MUST live under `app/controller/`. After the
-migration from `app/api/` is complete, no endpoint definitions should exist
-outside this layer.
+All HTTP endpoint definitions MUST live under `app/controller/`. No endpoint
+definitions should exist outside this layer.
 
 **Why:** A single source of truth for HTTP interfaces makes Swagger
 documentation, API testing, and interface review predictable. Duplicate
-endpoint definitions in `api/` and `controller/` create drift and confusion.
+endpoint definitions in duplicate HTTP layers create drift and confusion.
 
 ## Swagger / OpenAPI Requirements
 

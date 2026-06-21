@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from app.db.base import Base
+from app.models.base import Base
 from app.main import create_app
 from app.repositories.translation_task_repository import TranslationTaskRepository
 from app.queues.translation_task_queue import StubTranslationTaskQueue

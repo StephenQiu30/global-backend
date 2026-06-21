@@ -1,58 +1,23 @@
 """Controller for GitHub App installation endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from typing import Annotated
 
-from app.core.config import Settings
-from app.services.github_app import GitHubAppClient
+from fastapi import APIRouter, Depends, HTTPException
+
+from app.core.github import get_github_client
+from app.dto.installation import (
+    ListInstallationRepositoriesRequest,
+    VerifyInstallationRequest,
+)
 from app.services.installation_service import InstallationService
-from app.repositories.installation_account_repository import InstallationAccountRepository
+from app.vo.error_vo import SimpleErrorVO
+from app.vo.installation_vo import (
+    InstallationVO,
+    RepositoryItemVO,
+    RepositoryListVO,
+)
 
 router = APIRouter(prefix="/installations", tags=["installations"])
-
-
-class VerifyRequest(BaseModel):
-    """Request body for installation verification."""
-
-    installation_id: int
-
-
-class InstallationResponse(BaseModel):
-    """Response body for a verified installation."""
-
-    installation_id: int
-    account_login: str
-    account_type: str
-    repository_selection: str
-
-
-class RepositoryItem(BaseModel):
-    """A single repository in an installation."""
-
-    full_name: str
-    default_branch: str
-    private: bool
-
-
-class RepositoryListResponse(BaseModel):
-    """Response body listing installation repositories."""
-
-    repositories: list[RepositoryItem]
-
-
-class ErrorResponse(BaseModel):
-    """Structured error response."""
-
-    error: str
-
-
-def get_github_client() -> GitHubAppClient:
-    """Create a GitHubAppClient from current settings."""
-    settings = Settings()
-    return GitHubAppClient(
-        app_id=settings.github_app_id,
-        private_key=settings.github_private_key,
-    )
 
 
 def _get_installation_service() -> InstallationService:
@@ -60,19 +25,25 @@ def _get_installation_service() -> InstallationService:
     raise NotImplementedError("InstallationService not configured")
 
 
+def _list_installation_repositories_request(
+    installation_id: int,
+) -> ListInstallationRepositoriesRequest:
+    return ListInstallationRepositoriesRequest(installation_id=installation_id)
+
+
 @router.post(
     "/verify",
-    response_model=InstallationResponse,
+    response_model=InstallationVO,
     operation_id="verify_installation",
     responses={
-        404: {"model": ErrorResponse, "description": "Installation not found"},
-        502: {"model": ErrorResponse, "description": "GitHub API error"},
+        404: {"model": SimpleErrorVO, "description": "Installation not found"},
+        502: {"model": SimpleErrorVO, "description": "GitHub API error"},
     },
 )
 async def verify_installation(
-    body: VerifyRequest,
+    body: VerifyInstallationRequest,
     installation_service: InstallationService = Depends(_get_installation_service),
-) -> InstallationResponse:
+) -> InstallationVO:
     """Verify a GitHub App installation and persist account metadata."""
     client = get_github_client()
     try:
@@ -88,7 +59,7 @@ async def verify_installation(
         account_type=info.account_type,
     )
 
-    return InstallationResponse(
+    return InstallationVO(
         installation_id=info.installation_id,
         account_login=info.account_login,
         account_type=info.account_type,
@@ -98,21 +69,26 @@ async def verify_installation(
 
 @router.get(
     "/{installation_id}/repositories",
-    response_model=RepositoryListResponse,
+    response_model=RepositoryListVO,
     operation_id="list_installation_repositories",
     responses={
-        404: {"model": ErrorResponse, "description": "Installation not found"},
-        502: {"model": ErrorResponse, "description": "GitHub API error"},
+        404: {"model": SimpleErrorVO, "description": "Installation not found"},
+        502: {"model": SimpleErrorVO, "description": "GitHub API error"},
     },
 )
-def list_installation_repositories(installation_id: int) -> RepositoryListResponse:
+def list_installation_repositories(
+    request: Annotated[
+        ListInstallationRepositoriesRequest,
+        Depends(_list_installation_repositories_request),
+    ],
+) -> RepositoryListVO:
     """List repositories accessible by a GitHub App installation."""
     client = get_github_client()
     try:
-        repos = client.get_installation_repos(installation_id)
-        return RepositoryListResponse(
+        repos = client.get_installation_repos(request.installation_id)
+        return RepositoryListVO(
             repositories=[
-                RepositoryItem(
+                RepositoryItemVO(
                     full_name=r.full_name,
                     default_branch=r.default_branch,
                     private=r.private,

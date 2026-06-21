@@ -79,7 +79,7 @@ TaskRunner 遇到错误时 SHALL：
 - `translation_error`: 翻译失败
 - `unknown_error`: 未知错误
 
-## Translation Task API (`app/api/tasks.py`)
+## Translation Task Controller (`app/controller/translation_task_controller.py`)
 
 ### Requirement 10: POST /api/translation-tasks
 
