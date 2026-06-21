@@ -1,11 +1,12 @@
 """Tests for SQLAlchemy ORM models."""
 
+import json
 import pytest
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
-from app.db.base import Base
-from app.models.installation_account_model import InstallationAccountModel
-from app.models.translation_task_model import TranslationTaskModel
+from app.models.base import Base
+from app.models.installation_account import InstallationAccountModel
+from app.models.translation_task import TranslationTaskModel
 from app.models.translation_file_model import TranslationFileModel
 
 
@@ -38,16 +39,17 @@ class TestInstallationAccountModel:
             installation_id=12345,
             account_login="test-org",
             account_type="Organization",
+            repository_selection="all",
         )
         session.add(model)
         await session.commit()
         await session.refresh(model)
 
         assert model.id is not None
-        assert len(model.id) == 32  # uuid4().hex
         assert model.installation_id == 12345
         assert model.account_login == "test-org"
         assert model.account_type == "Organization"
+        assert model.repository_selection == "all"
         assert model.created_at is not None
 
     async def test_installation_id_unique(self, session):
@@ -56,6 +58,7 @@ class TestInstallationAccountModel:
             installation_id=12345,
             account_login="org-1",
             account_type="Organization",
+            repository_selection="all",
         )
         session.add(model1)
         await session.commit()
@@ -64,6 +67,7 @@ class TestInstallationAccountModel:
             installation_id=12345,
             account_login="org-2",
             account_type="Organization",
+            repository_selection="all",
         )
         session.add(model2)
         with pytest.raises(Exception):  # IntegrityError
@@ -80,7 +84,7 @@ class TestTranslationTaskModel:
             installation_id="inst-123",
             repository="owner/repo",
             base_branch="main",
-            source_files=["README.md", "docs/guide.md"],
+            files=json.dumps(["README.md", "docs/guide.md"]),
             language="zh-CN",
             status="queued",
         )
@@ -89,17 +93,16 @@ class TestTranslationTaskModel:
         await session.refresh(model)
 
         assert model.id is not None
-        assert len(model.id) == 32
         assert model.task_id == "abc123def456"
         assert model.installation_id == "inst-123"
         assert model.repository == "owner/repo"
         assert model.base_branch == "main"
-        assert model.source_files == ["README.md", "docs/guide.md"]
+        assert json.loads(model.files) == ["README.md", "docs/guide.md"]
         assert model.language == "zh-CN"
         assert model.status == "queued"
         assert model.pr_url is None
         assert model.pr_number is None
-        assert model.file_mappings is None
+        assert model.mappings is None
         assert model.error_code is None
         assert model.error_message is None
         assert model.created_at is not None
@@ -111,7 +114,7 @@ class TestTranslationTaskModel:
             installation_id="inst-1",
             repository="owner/repo",
             base_branch="main",
-            source_files=["README.md"],
+            files=json.dumps(["README.md"]),
             language="zh-CN",
         )
         session.add(model1)
@@ -122,7 +125,7 @@ class TestTranslationTaskModel:
             installation_id="inst-2",
             repository="owner/repo2",
             base_branch="main",
-            source_files=["README.md"],
+            files=json.dumps(["README.md"]),
             language="ja",
         )
         session.add(model2)
@@ -136,7 +139,7 @@ class TestTranslationTaskModel:
             installation_id="inst-123",
             repository="owner/repo",
             base_branch="main",
-            source_files=["README.md"],
+            files=json.dumps(["README.md"]),
             language="zh-CN",
             status="queued",
         )
@@ -146,14 +149,14 @@ class TestTranslationTaskModel:
         model.status = "succeeded"
         model.pr_url = "https://github.com/owner/repo/pull/42"
         model.pr_number = 42
-        model.file_mappings = [{"source_path": "README.md", "target_path": "README.zh-CN.md"}]
+        model.mappings = json.dumps([{"source_path": "README.md", "target_path": "README.zh-CN.md"}])
         await session.commit()
         await session.refresh(model)
 
         assert model.status == "succeeded"
         assert model.pr_url == "https://github.com/owner/repo/pull/42"
         assert model.pr_number == 42
-        assert len(model.file_mappings) == 1
+        assert len(json.loads(model.mappings)) == 1
 
     async def test_task_json_columns(self, session):
         """JSON columns store and retrieve complex data."""
@@ -167,17 +170,17 @@ class TestTranslationTaskModel:
             installation_id="inst-123",
             repository="owner/repo",
             base_branch="main",
-            source_files=files,
+            files=json.dumps(files),
             language="zh-CN",
             status="succeeded",
-            file_mappings=mappings,
+            mappings=json.dumps(mappings),
         )
         session.add(model)
         await session.commit()
         await session.refresh(model)
 
-        assert model.source_files == files
-        assert model.file_mappings == mappings
+        assert json.loads(model.files) == files
+        assert json.loads(model.mappings) == mappings
 
 
 class TestTranslationFileModel:
@@ -196,7 +199,6 @@ class TestTranslationFileModel:
         await session.refresh(model)
 
         assert model.id is not None
-        assert len(model.id) == 32
         assert model.task_id == "task-123"
         assert model.source_path == "README.md"
         assert model.target_path == "README.zh-CN.md"

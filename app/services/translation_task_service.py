@@ -1,7 +1,6 @@
 """Application service for translation task lifecycle."""
 
-from uuid import uuid4
-
+from app.domain.task import TaskStatus
 from app.domain.languages import validate_language_code
 from app.repositories.translation_task_repository import TranslationTaskRepository
 from app.queues.translation_task_queue import TranslationTaskQueue
@@ -49,17 +48,15 @@ class TranslationTaskService:
         if not validate_language_code(language):
             raise ValueError(f"Language '{language}' is not supported")
 
-        task_id = uuid4().hex
-        await self._repo.create_task(
-            task_id=task_id,
+        task = await self._repo.create(
             installation_id=installation_id,
             repository=repository,
             base_branch=base_branch,
-            source_files=files,
+            files=files,
             language=language,
         )
-        self._queue.enqueue(task_id)
-        return TranslationTaskCreateVO(task_id=task_id, status="queued")
+        self._queue.enqueue(task.task_id)
+        return TranslationTaskCreateVO(task_id=task.task_id, status=task.status.value)
 
     async def get_task_status(self, task_id: str) -> TranslationTaskStatusVO | None:
         """Retrieve persisted task status by task_id.
@@ -70,22 +67,22 @@ class TranslationTaskService:
         Returns:
             TranslationTaskStatusVO if found, None otherwise.
         """
-        task = await self._repo.get_by_task_id(task_id)
+        task = await self._repo.get_by_id(task_id)
         if task is None:
             return None
 
         return TranslationTaskStatusVO(
             task_id=task.task_id,
-            status=task.status,
+            status=task.status.value,
             repository=task.repository,
             language=task.language,
             pr_url=task.pr_url,
             pr_number=task.pr_number,
-            file_mappings=task.file_mappings,
+            file_mappings=task.mappings,
             error_code=task.error_code,
             error_message=task.error_message,
-            created_at=str(task.created_at),
-            updated_at=str(task.updated_at),
+            created_at="",
+            updated_at="",
         )
 
     async def get_file_previews(self, task_id: str) -> list[FilePreviewVO] | None:
@@ -97,16 +94,16 @@ class TranslationTaskService:
         Returns:
             List of FilePreviewVO if task exists, None if task not found.
         """
-        task = await self._repo.get_by_task_id(task_id)
+        task = await self._repo.get_by_id(task_id)
         if task is None:
             return None
 
         previews = await self._repo.get_file_previews(task_id)
         return [
             FilePreviewVO(
-                source_path=p.source_path,
-                target_path=p.target_path,
-                status=p.status,
+                source_path=p["source_path"],
+                target_path=p["target_path"],
+                status="translated",
             )
             for p in previews
         ]

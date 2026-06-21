@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 from app.db.base import Base
 from app.main import create_app
 from app.repositories.translation_task_repository import TranslationTaskRepository
-from app.queues.translation_task_queue import TranslationTaskQueue
+from app.queues.translation_task_queue import StubTranslationTaskQueue
 from app.services.translation_task_service import TranslationTaskService
 from fastapi.testclient import TestClient
 
@@ -34,7 +34,7 @@ async def db_session(db_engine):
 @pytest.fixture
 def queue():
     """Create a stub queue for testing."""
-    return TranslationTaskQueue()
+    return StubTranslationTaskQueue()
 
 
 @pytest.fixture
@@ -72,7 +72,7 @@ class TestTranslationTasksSuccess:
         data = response.json()
         assert "task_id" in data
         assert data["status"] == "queued"
-        assert len(data["task_id"]) == 32
+        assert len(data["task_id"]) == 36  # uuid4() with hyphens
 
     def test_create_task_multiple_files(self, client):
         """POST /api/translation-tasks with multiple files returns task_id."""

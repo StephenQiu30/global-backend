@@ -34,6 +34,7 @@ class InstallationService:
             installation_id=installation_id,
             account_login=account_login,
             account_type=account_type,
+            repository_selection="all",
         )
         return {
             "installation_id": installation_id,

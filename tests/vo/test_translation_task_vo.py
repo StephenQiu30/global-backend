@@ -164,12 +164,19 @@ class TestFilePreviewVO:
         vo = FilePreviewVO(
             source_path="README.md",
             target_path="README.zh-CN.md",
-            translated_content="# 你好世界",
+            status="translated",
         )
         data = vo.model_dump()
         assert data["source_path"] == "README.md"
         assert data["target_path"] == "README.zh-CN.md"
-        assert data["translated_content"] == "# 你好世界"
+        assert data["status"] == "translated"
+
+    def test_default_status(self):
+        vo = FilePreviewVO(
+            source_path="README.md",
+            target_path="README.zh-CN.md",
+        )
+        assert vo.status == "translated"
 
 
 class TestPublicPreviewVO:
@@ -181,14 +188,14 @@ class TestPublicPreviewVO:
                 FilePreviewVO(
                     source_path="README.md",
                     target_path="README.zh-CN.md",
-                    translated_content="# 你好世界",
+                    status="translated",
                 )
             ]
         )
         data = vo.model_dump()
         assert len(data["previews"]) == 1
         assert data["previews"][0]["source_path"] == "README.md"
-        assert data["previews"][0]["translated_content"] == "# 你好世界"
+        assert data["previews"][0]["status"] == "translated"
 
     def test_empty_previews(self):
         vo = PublicPreviewVO(previews=[])
@@ -201,12 +208,12 @@ class TestPublicPreviewVO:
                 FilePreviewVO(
                     source_path="README.md",
                     target_path="README.zh-CN.md",
-                    translated_content="# 你好",
+                    status="translated",
                 ),
                 FilePreviewVO(
                     source_path="docs/guide.md",
                     target_path="docs/guide.zh-CN.md",
-                    translated_content="# 指南",
+                    status="translated",
                 ),
             ]
         )

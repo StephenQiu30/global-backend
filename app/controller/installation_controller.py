@@ -1,10 +1,12 @@
 """Controller for GitHub App installation endpoints."""
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.core.config import Settings
 from app.services.github_app import GitHubAppClient
+from app.services.installation_service import InstallationService
+from app.repositories.installation_account_repository import InstallationAccountRepository
 
 router = APIRouter(prefix="/installations", tags=["installations"])
 
@@ -53,6 +55,11 @@ def get_github_client() -> GitHubAppClient:
     )
 
 
+def _get_installation_service() -> InstallationService:
+    """Dependency to get InstallationService. Override in app factory."""
+    raise NotImplementedError("InstallationService not configured")
+
+
 @router.post(
     "/verify",
     response_model=InstallationResponse,
@@ -62,21 +69,31 @@ def get_github_client() -> GitHubAppClient:
         502: {"model": ErrorResponse, "description": "GitHub API error"},
     },
 )
-def verify_installation(body: VerifyRequest) -> InstallationResponse:
-    """Verify a GitHub App installation exists and is accessible."""
+async def verify_installation(
+    body: VerifyRequest,
+    installation_service: InstallationService = Depends(_get_installation_service),
+) -> InstallationResponse:
+    """Verify a GitHub App installation and persist account metadata."""
     client = get_github_client()
     try:
         info = client.get_installation(body.installation_id)
-        return InstallationResponse(
-            installation_id=info.installation_id,
-            account_login=info.account_login,
-            account_type=info.account_type,
-            repository_selection=info.repository_selection,
-        )
     except ValueError:
         raise HTTPException(status_code=404, detail="Installation not found")
     except RuntimeError:
         raise HTTPException(status_code=502, detail="GitHub API error")
+
+    await installation_service.verify_and_persist(
+        installation_id=info.installation_id,
+        account_login=info.account_login,
+        account_type=info.account_type,
+    )
+
+    return InstallationResponse(
+        installation_id=info.installation_id,
+        account_login=info.account_login,
+        account_type=info.account_type,
+        repository_selection=info.repository_selection,
+    )
 
 
 @router.get(

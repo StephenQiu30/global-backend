@@ -13,11 +13,11 @@ from unittest.mock import patch, MagicMock
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
-from app.db.base import Base
-from app.models.installation_account_model import InstallationAccountModel
+from app.models.base import Base
+from app.models.installation_account import InstallationAccountModel
 from app.repositories.translation_task_repository import TranslationTaskRepository
 from app.repositories.installation_account_repository import InstallationAccountRepository
-from app.queues.translation_task_queue import TranslationTaskQueue
+from app.queues.translation_task_queue import StubTranslationTaskQueue
 from app.services.translation_task_service import TranslationTaskService
 from app.services.installation_service import InstallationService
 from app.main import create_app
@@ -47,7 +47,7 @@ async def db_session(db_engine):
 @pytest.fixture
 def queue():
     """Create a stub queue for testing."""
-    return TranslationTaskQueue()
+    return StubTranslationTaskQueue()
 
 
 @pytest.fixture
@@ -95,7 +95,7 @@ class TestCreateTranslationTaskPersistence:
         data = response.json()
         assert "task_id" in data
         assert data["status"] == "queued"
-        assert len(data["task_id"]) == 32  # uuid4().hex
+        assert len(data["task_id"]) == 36  # uuid4() with hyphens
 
     def test_create_task_enqueues_task_id(self, client, queue):
         """POST /api/translation-tasks enqueues the task ID."""
@@ -180,20 +180,16 @@ class TestGetTaskStatus:
         task_id = create_resp.json()["task_id"]
 
         import asyncio
+        from app.domain.task import TaskStatus
 
         async def update():
-            from app.repositories.translation_task_repository import TranslationTaskRepository
             repo = TranslationTaskRepository(db_session)
             await repo.update_status(
                 task_id,
-                "succeeded",
+                TaskStatus.SUCCEEDED,
                 pr_url="https://github.com/owner/repo/pull/42",
                 pr_number=42,
-                file_mappings=[{"source_path": "README.md", "target_path": "README.zh-CN.md"}],
-            )
-            await repo.create_file_previews(
-                task_id,
-                [{"source_path": "README.md", "target_path": "README.zh-CN.md"}],
+                mappings=[{"source_path": "README.md", "target_path": "README.zh-CN.md"}],
             )
         asyncio.get_event_loop().run_until_complete(update())
 
@@ -224,13 +220,13 @@ class TestGetTaskStatus:
         task_id = create_resp.json()["task_id"]
 
         import asyncio
+        from app.domain.task import TaskStatus
 
         async def update():
-            from app.repositories.translation_task_repository import TranslationTaskRepository
             repo = TranslationTaskRepository(db_session)
             await repo.update_status(
                 task_id,
-                "failed",
+                TaskStatus.FAILED,
                 error_code="translation_error",
                 error_message="Translation provider returned an error",
             )
@@ -259,18 +255,21 @@ class TestGetFilePreviews:
         task_id = create_resp.json()["task_id"]
 
         import asyncio
+        from app.domain.task import TaskStatus
 
-        async def create_previews():
-            from app.repositories.translation_task_repository import TranslationTaskRepository
+        async def update_task():
             repo = TranslationTaskRepository(db_session)
-            await repo.create_file_previews(
+            await repo.update_status(
                 task_id,
-                [
+                TaskStatus.SUCCEEDED,
+                pr_url="https://github.com/owner/repo/pull/1",
+                pr_number=1,
+                mappings=[
                     {"source_path": "README.md", "target_path": "README.zh-CN.md"},
                     {"source_path": "docs/guide.md", "target_path": "docs/guide.zh-CN.md"},
                 ],
             )
-        asyncio.get_event_loop().run_until_complete(create_previews())
+        asyncio.get_event_loop().run_until_complete(update_task())
 
         response = client.get(f"/api/translation-tasks/{task_id}/file-previews")
         assert response.status_code == 200
@@ -314,7 +313,7 @@ class TestInstallationVerificationPersistence:
         mock_result.account_type = "Organization"
         mock_result.repository_selection = "all"
 
-        with patch("app.api.installations.get_github_client") as mock_get_client:
+        with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
             mock_client.get_installation.return_value = mock_result
             mock_get_client.return_value = mock_client
