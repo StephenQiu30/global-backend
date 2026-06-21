@@ -71,6 +71,7 @@ def test_settings_has_redis_url_default(monkeypatch):
     monkeypatch.setenv("GITHUB_PRIVATE_KEY", "test-key")
     monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "test-secret")
 
+
     from app.core.config import Settings
 
     settings = Settings()
