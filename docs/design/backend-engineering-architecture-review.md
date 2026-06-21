@@ -127,7 +127,8 @@ Current files:
 - `session.py` — `get_async_session()` async generator.
 - `schema.py` — `init_schema()` using `Base.metadata.create_all`.
 
-Schema is initialized via `scripts/init_db.py`, not Alembic.
+Schema is initialized by the unified local process entrypoint
+`app.runner:main` during `python -m app` startup, not by a separate script.
 
 ### `queues/`
 
@@ -224,7 +225,8 @@ These are intentionally not part of this architecture:
 
 - **No `app/application/` layer.** Orchestration lives in `app/services/`.
 - **No `app/api/` layer.** HTTP lives only in `app/controller/`.
-- **No Alembic migrations (current phase).** Schema via `scripts/init_db.py`.
+- **No Alembic migrations (current phase).** Schema initialization is owned by
+  `app.runner:main` for local startup.
 - **No frontend work.** This document covers backend structure only.
 - **No full authentication system.** Auth decisions are deferred.
 - **No generic repository base class.** Add only when real duplication appears.

@@ -32,3 +32,17 @@ def test_operations_doc_documents_only_supported_startup_paths():
     assert "```bash\nglobal-backend\n```" not in doc
     assert "scripts/init_db.py" not in doc
     assert "uvicorn app.main:app" not in doc
+
+
+def test_active_project_docs_do_not_reference_removed_startup_paths():
+    """Active project docs must not keep removed startup commands alive."""
+    active_docs = [
+        ROOT / "CLAUDE.local.md",
+        ROOT / "docs/design/backend-engineering-architecture-review.md",
+    ]
+
+    for path in active_docs:
+        text = path.read_text(encoding="utf-8")
+        assert "scripts/init_db.py" not in text, path
+        assert "uvicorn app.main:app" not in text, path
+        assert "```bash\nglobal-backend\n```" not in text, path
