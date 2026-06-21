@@ -15,9 +15,10 @@ This directory maps each PRD file to its own implementation plan. Execute plans 
 9. [PRD 08 Task Status And Results Plan](08-task-status-and-results-plan.md)
 10. [PRD 09 Security And Permissions Plan](09-security-and-permissions-plan.md)
 
-## Second-Phase Plan
+## Second-Phase Plans
 
 11. [PRD 10 Public Repository Preview Future Plan](10-public-repository-preview-future-plan.md)
+12. [PRD 11 Persistence, ORM, RQ & Layered Architecture Plan](11-persistence-orm-rq-plan.md)
 
 ## Execution Notes
 
