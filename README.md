@@ -73,24 +73,40 @@ cp .env.example .env
 
 Symphony / Linear 相关变量见 `.env.example` 注释，仅 Agent 工作流需要。
 
-### 3. 初始化数据库
+### 3. 启动服务
 
-本地需运行 PostgreSQL 与 Redis。表结构以 `app/models/` 为唯一来源，首次启动前执行：
-
-```bash
-createdb translation  # 如尚未创建
-python scripts/init_db.py
-```
-
-`scripts/init_db.py` 读取 `.env` 中的 `DATABASE_URL`，通过 SQLAlchemy `create_all` 同步 ORM 定义到数据库。
-
-### 4. 启动服务
+推荐本地开发方式。确保本机 PostgreSQL 与 Redis 已运行，然后一条命令启动全部组件：
 
 ```bash
-uvicorn app.main:app --reload --port 8000
+createdb translation  # 首次创建本地数据库时执行
+python -m app
 ```
 
-### 5. 运行测试
+这条命令会按顺序完成数据库表初始化、启动一个 RQ Worker 子进程、启动 FastAPI API。
+
+Docker 一键启动 PostgreSQL、Redis 与后端：
+
+```bash
+docker compose up --build
+```
+
+停止 Docker 本地栈：
+
+```bash
+docker compose down
+```
+
+重置 Docker PostgreSQL 数据：
+
+```bash
+docker compose down -v
+```
+
+可选环境变量：`HOST`（默认 `0.0.0.0`）、`PORT`（默认 `8000`）。
+
+启动后访问 `http://127.0.0.1:8000/docs` 查看 API 文档。
+
+### 4. 运行测试
 
 ```bash
 pytest tests/ -v

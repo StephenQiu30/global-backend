@@ -26,18 +26,43 @@ downstream: []
 ## 环境要求
 
 - Python 3.12+
+- PostgreSQL（本机启动方式需要）
+- Redis（本机启动方式需要）
 - GitHub App（已创建并安装到测试仓库）
 - OpenAI API Key（启用真实翻译时）
 
 ## 本地启动
+
+### 推荐：本机 main 一键启动
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
-# 编辑 .env，填写 GITHUB_APP_ID、GITHUB_PRIVATE_KEY 等
-uvicorn app.main:app --reload --port 8000
+# 编辑 .env，填写 GITHUB_APP_ID、GITHUB_PRIVATE_KEY、DATABASE_URL、REDIS_URL 等
+createdb translation
+python -m app
+```
+
+### Docker Compose 一体化启动
+
+```bash
+cp .env.example .env
+# 编辑 .env，填写 GitHub / OpenAI 相关变量；Compose 会覆盖 DATABASE_URL 与 REDIS_URL
+docker compose up --build
+```
+
+停止 Docker 本地栈：
+
+```bash
+docker compose down
+```
+
+重置 Docker PostgreSQL 数据：
+
+```bash
+docker compose down -v
 ```
 
 服务启动后：
