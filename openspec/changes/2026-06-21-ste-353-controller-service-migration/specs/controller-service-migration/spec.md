@@ -22,7 +22,7 @@
    - HTTP status codes SHALL remain semantically correct (400, 403, 404, 422, 429, 500, 502, 504)
 
 5. **Dead Code Removal**
-   - `AppError` class in `app/core/errors.py` SHALL be removed
+   - `AppError` class in `app/core/errors.py` — KEPT: still used in domain tests for TaskResult error semantics
    - Old error VO models in `app/vo/error_vo.py` SHALL be removed (`SimpleErrorVO`, `MessageErrorVO`, `RetryableErrorVO`, `CodeMessageErrorVO`)
    - `TaskNotFoundVO` in `app/vo/translation_task_vo.py` SHALL be removed if present
 
