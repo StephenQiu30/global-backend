@@ -9,7 +9,7 @@ def test_list_repositories_success(client):
     mock_repo.default_branch = "main"
     mock_repo.private = True
 
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation_repos.return_value = [mock_repo]
         mock_get_client.return_value = mock_client
@@ -27,7 +27,7 @@ def test_list_repositories_success(client):
 
 def test_list_repositories_empty(client):
     """GET /api/github/installations/{id}/repositories returns empty list."""
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation_repos.return_value = []
         mock_get_client.return_value = mock_client
@@ -46,7 +46,7 @@ def test_list_repositories_no_tokens_in_response(client):
     mock_repo.default_branch = "main"
     mock_repo.private = True
 
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation_repos.return_value = [mock_repo]
         mock_get_client.return_value = mock_client
@@ -63,7 +63,7 @@ def test_list_repositories_no_tokens_in_response(client):
 
 def test_list_repositories_not_found(client):
     """GET /api/github/installations/{id}/repositories returns 404 for invalid id."""
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation_repos.side_effect = ValueError("not found")
         mock_get_client.return_value = mock_client
@@ -75,7 +75,7 @@ def test_list_repositories_not_found(client):
 
 def test_list_repositories_github_api_error(client):
     """GET /api/github/installations/{id}/repositories returns 502 on GitHub failure."""
-    with patch("app.api.installations.get_github_client") as mock_get_client:
+    with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
         mock_client.get_installation_repos.side_effect = RuntimeError("GitHub API error")
         mock_get_client.return_value = mock_client

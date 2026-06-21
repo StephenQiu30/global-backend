@@ -4,7 +4,7 @@ import pytest
 
 from fastapi import HTTPException
 
-from app.api.tasks import map_error_to_response
+from app.controller.translation_task_controller import map_error_to_response
 from app.core.errors import AppError
 
 

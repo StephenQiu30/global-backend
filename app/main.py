@@ -2,32 +2,37 @@
 
 from fastapi import FastAPI
 
-from app.api.installations import (
-    router as installations_router,
-    _get_installation_service,
+from app.controller.installation_controller import router as installations_router
+from app.controller.language_controller import router as languages_router
+from app.controller.repository_controller import router as repositories_router
+from app.controller.translation_task_controller import (
+    router as tasks_router,
+    _get_task_runner,
 )
-from app.api.languages import router as languages_router
-from app.api.repositories import router as repositories_router
-from app.api.tasks import router as tasks_router, _get_task_service
-from app.api.public_preview import (
+from app.controller.public_preview_controller import (
     router as public_preview_router,
     _get_public_preview_service,
 )
-from app.services.installation_service import InstallationService
+from app.services.task_runner import TaskRunner
 from app.services.public_repository import PublicPreviewService
-from app.services.translation_task_service import TranslationTaskService
+
+OPENAPI_TAGS = [
+    {"name": "installations", "description": "GitHub App installation management"},
+    {"name": "repositories", "description": "Repository discovery and authorization"},
+    {"name": "languages", "description": "Supported language listing"},
+    {"name": "translation-tasks", "description": "Translation task execution"},
+    {"name": "public-preview", "description": "Public repository translation preview"},
+]
 
 
 def create_app(
-    task_service: TranslationTaskService | None = None,
-    installation_service: InstallationService | None = None,
+    task_runner: TaskRunner | None = None,
     public_preview_service: PublicPreviewService | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
     Args:
-        task_service: Optional TranslationTaskService instance (for testing)
-        installation_service: Optional InstallationService instance (for testing)
+        task_runner: Optional TaskRunner instance (for testing)
         public_preview_service: Optional PublicPreviewService instance (for testing)
 
     Returns:
@@ -37,15 +42,11 @@ def create_app(
         title="GitHub Markdown Translator",
         description="Backend API for GitHub Markdown translation",
         version="0.1.0",
+        openapi_tags=OPENAPI_TAGS,
     )
 
-    if task_service is not None:
-        app.dependency_overrides[_get_task_service] = lambda: task_service
-
-    if installation_service is not None:
-        app.dependency_overrides[_get_installation_service] = (
-            lambda: installation_service
-        )
+    if task_runner is not None:
+        app.dependency_overrides[_get_task_runner] = lambda: task_runner
 
     if public_preview_service is not None:
         app.dependency_overrides[_get_public_preview_service] = (

@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 from fastapi.testclient import TestClient
 
-from app.api.repositories import router
+from app.controller.repository_controller import router
 from app.services.markdown_discovery import MarkdownFileInfo
 
 
@@ -30,7 +30,7 @@ def mock_github_client():
         full_name="test-owner/test-repo",
     )
     mock_client.get_repository_tree.return_value = []
-    with patch("app.api.repositories.get_github_client") as mock_func:
+    with patch("app.controller.repository_controller.get_github_client") as mock_func:
         mock_func.return_value = mock_client
         yield mock_client
         mock_func.reset_mock()
@@ -48,7 +48,7 @@ class TestGetMarkdownFiles:
         assert data["detail"]["error"] == "repository_not_installed"
         mock_github_client.is_repository_authorized.assert_not_called()
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_empty_repository(self, mock_discover, client):
         """GIVEN authorized repo with no markdown files THEN returns empty list."""
         mock_discover.return_value = []
@@ -61,7 +61,7 @@ class TestGetMarkdownFiles:
         assert response.status_code == 200
         assert response.json() == []
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_returns_markdown_files(self, mock_discover, client):
         """GIVEN authorized repo with markdown files THEN returns file list."""
         mock_discover.return_value = [
@@ -97,7 +97,7 @@ class TestGetMarkdownFiles:
         assert data[0]["is_default_readme"] is True
         assert data[1]["path"] == "docs/guide.md"
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_custom_language_parameter(self, mock_discover, client):
         """GIVEN language=ja THEN target paths use ja suffix."""
         mock_discover.return_value = [
@@ -121,7 +121,7 @@ class TestGetMarkdownFiles:
         data = response.json()
         assert data[0]["target_path_preview"] == "README.ja.md"
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_default_language_is_zh_cn(self, mock_discover, client):
         """GIVEN no language parameter THEN defaults to zh-CN."""
         mock_discover.return_value = [
@@ -145,7 +145,7 @@ class TestGetMarkdownFiles:
         data = response.json()
         assert data[0]["target_path_preview"] == "README.zh-CN.md"
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_includes_disabled_reason(self, mock_discover, client):
         """GIVEN oversized file THEN response includes disabled_reason."""
         mock_discover.return_value = [
@@ -171,7 +171,7 @@ class TestGetMarkdownFiles:
         data = response.json()
         assert data["detail"]["error"] == "selection_limit_exceeded"
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_response_format(self, mock_discover, client):
         """GIVEN file list THEN response has correct structure."""
         mock_discover.return_value = [
@@ -204,7 +204,7 @@ class TestGetMarkdownFiles:
         assert "target_path_preview" in file
         assert "target_exists" in file
 
-    @patch("app.api.repositories.discover_markdown_files")
+    @patch("app.controller.repository_controller.discover_markdown_files")
     def test_validate_selection_called(self, mock_discover, client):
         """GIVEN files exceeding limits THEN returns 400 selection_limit_exceeded."""
         # Create 11 files to exceed MAX_FILE_COUNT (10)
