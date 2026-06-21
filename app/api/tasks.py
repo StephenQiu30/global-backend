@@ -1,14 +1,13 @@
 """Translation task API endpoints."""
 
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
 from app.core.errors import AppError
 from app.domain.languages import validate_language_code
-from app.domain.task import TaskResult
+from app.domain.task import Task, TaskResult
+from app.dto.translation_task_dto import CreateTranslationTaskDTO
 from app.services.task_runner import TaskRunner
+from app.vo.translation_task_vo import TranslationTaskVO, FileMappingVO
 
 router = APIRouter()
 
@@ -56,14 +55,21 @@ def map_error_to_response(error: Exception) -> HTTPException:
     )
 
 
-class TranslationTaskRequest(BaseModel):
-    """Request model for POST /api/translation-tasks."""
-
-    installation_id: str = Field(..., min_length=1)
-    repository: str = Field(..., min_length=1)
-    base_branch: str = Field(..., min_length=1)
-    files: List[str] = Field(..., min_length=1)
-    language: str = Field(..., min_length=1)
+def _to_translation_task_vo(result: TaskResult) -> TranslationTaskVO:
+    """Convert domain TaskResult to response VO."""
+    return TranslationTaskVO(
+        status=result.status.value,
+        pr_url=result.pr_url,
+        pr_number=result.pr_number,
+        mappings=[
+            FileMappingVO(source_path=m.source_path, target_path=m.target_path)
+            for m in result.mappings
+        ]
+        if result.mappings
+        else None,
+        error_code=result.error_code,
+        error_message=result.error_message,
+    )
 
 
 def _get_task_runner() -> TaskRunner:
@@ -71,27 +77,25 @@ def _get_task_runner() -> TaskRunner:
     raise NotImplementedError("TaskRunner not configured")
 
 
-@router.post("/translation-tasks", response_model=TaskResult)
+@router.post("/translation-tasks", response_model=TranslationTaskVO)
 async def create_translation_task(
-    request: TranslationTaskRequest,
+    request: CreateTranslationTaskDTO,
     task_runner: TaskRunner = Depends(_get_task_runner),
-) -> TaskResult:
+) -> TranslationTaskVO:
     """Create and execute a translation task synchronously.
 
     Args:
-        request: Translation task request
+        request: Translation task request DTO
         task_runner: Task runner service
 
     Returns:
-        TaskResult with status, PR info, or error details
+        TranslationTaskVO with status, PR info, or error details
     """
     if not validate_language_code(request.language):
         raise HTTPException(
             status_code=400,
             detail={"error": "unsupported_language", "message": f"Language '{request.language}' is not supported"},
         )
-
-    from app.domain.task import Task
 
     task = Task(
         task_id="generated",
@@ -101,4 +105,5 @@ async def create_translation_task(
         files=request.files,
         language=request.language,
     )
-    return await task_runner.run(task)
+    result = await task_runner.run(task)
+    return _to_translation_task_vo(result)
