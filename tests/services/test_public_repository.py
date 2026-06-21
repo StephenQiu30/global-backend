@@ -3,6 +3,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.core.exceptions import AppException
 from app.services.public_repository import (
     PublicRepositoryClient,
     PublicPreviewService,
@@ -125,7 +126,7 @@ class TestPublicRepositoryGetFileContent:
         """Paths with directory traversal should be rejected."""
         client = PublicRepositoryClient()
 
-        with pytest.raises(ValueError, match="unsafe path"):
+        with pytest.raises(AppException, match="unsafe path"):
             await client.get_file_content("owner", "repo", "main", "../../etc/passwd")
 
     @pytest.mark.asyncio
@@ -133,7 +134,7 @@ class TestPublicRepositoryGetFileContent:
         """Absolute paths should be rejected."""
         client = PublicRepositoryClient()
 
-        with pytest.raises(ValueError, match="unsafe path"):
+        with pytest.raises(AppException, match="unsafe path"):
             await client.get_file_content("owner", "repo", "main", "/etc/passwd")
 
 
@@ -141,33 +142,33 @@ class TestPublicRepositoryErrors:
     """Tests for error handling in PublicRepositoryClient."""
 
     @pytest.mark.asyncio
-    async def test_repository_not_found_raises_value_error(self):
-        """404 from GitHub should raise ValueError."""
+    async def test_repository_not_found_raises_app_exception(self):
+        """404 from GitHub should raise AppException."""
         client = PublicRepositoryClient()
         mock_client = _mock_httpx_get(404)
 
         with patch("httpx.AsyncClient", return_value=mock_client):
-            with pytest.raises(ValueError, match="not found"):
+            with pytest.raises(AppException, match="not found"):
                 await client.list_markdown_files("owner", "nonexistent", "main")
 
     @pytest.mark.asyncio
-    async def test_rate_limited_raises_value_error(self):
-        """403 from GitHub should raise ValueError with rate_limited."""
+    async def test_rate_limited_raises_app_exception(self):
+        """403 from GitHub should raise AppException with rate limited."""
         client = PublicRepositoryClient()
         mock_client = _mock_httpx_get(403)
 
         with patch("httpx.AsyncClient", return_value=mock_client):
-            with pytest.raises(ValueError, match="rate_limited"):
+            with pytest.raises(AppException, match="rate limit"):
                 await client.list_markdown_files("owner", "repo", "main")
 
     @pytest.mark.asyncio
-    async def test_rate_limited_429_raises_value_error(self):
-        """429 from GitHub should also raise ValueError with rate_limited."""
+    async def test_rate_limited_429_raises_app_exception(self):
+        """429 from GitHub should also raise AppException with rate limited."""
         client = PublicRepositoryClient()
         mock_client = _mock_httpx_get(429)
 
         with patch("httpx.AsyncClient", return_value=mock_client):
-            with pytest.raises(ValueError, match="rate_limited"):
+            with pytest.raises(AppException, match="rate limit"):
                 await client.list_markdown_files("owner", "repo", "main")
 
 
@@ -266,7 +267,7 @@ class TestPublicPreviewServiceValidation:
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
 
-        with pytest.raises(ValueError, match="unsafe"):
+        with pytest.raises(AppException, match="unsafe"):
             await service.preview(
                 repository="owner/repo",
                 branch="main",
@@ -281,7 +282,7 @@ class TestPublicPreviewServiceValidation:
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
 
-        with pytest.raises(ValueError, match="not supported"):
+        with pytest.raises(AppException, match="not supported"):
             await service.preview(
                 repository="owner/repo",
                 branch="main",
@@ -296,7 +297,7 @@ class TestPublicPreviewServiceValidation:
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
 
-        with pytest.raises(ValueError, match="excluded"):
+        with pytest.raises(AppException, match="excluded"):
             await service.preview(
                 repository="owner/repo",
                 branch="main",
@@ -312,11 +313,15 @@ class TestPublicPreviewServiceErrors:
     async def test_file_read_error_propagates(self):
         """File read errors should propagate."""
         mock_client = AsyncMock()
-        mock_client.get_file_content.side_effect = ValueError("file not found")
+        mock_client.get_file_content.side_effect = AppException(
+            code="REPOSITORY_NOT_FOUND",
+            message="file not found",
+            http_status=404,
+        )
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
 
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(AppException, match="not found"):
             await service.preview(
                 repository="owner/repo",
                 branch="main",
@@ -332,7 +337,7 @@ class TestPublicPreviewServiceErrors:
         service = PublicPreviewService(mock_client, provider)
         files = [f"file{i}.md" for i in range(11)]
 
-        with pytest.raises(ValueError, match="too many files"):
+        with pytest.raises(AppException, match="too many files"):
             await service.preview(
                 repository="owner/repo",
                 branch="main",
@@ -350,7 +355,7 @@ class TestPublicPreviewServiceErrors:
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
 
-        with pytest.raises(ValueError, match="total content size"):
+        with pytest.raises(AppException, match="total content size"):
             await service.preview(
                 repository="owner/repo",
                 branch="main",

@@ -6,16 +6,14 @@ from unittest.mock import patch, MagicMock
 
 from fastapi.testclient import TestClient
 
-from app.controller.repository_controller import router
+from app.main import create_app
 from app.services.markdown_discovery import MarkdownFileInfo
 
 
 @pytest.fixture
 def client():
-    """Create test client."""
-    from fastapi import FastAPI
-    app = FastAPI()
-    app.include_router(router, prefix="/api")
+    """Create test client with full app."""
+    app = create_app()
     return TestClient(app)
 
 
@@ -45,7 +43,8 @@ class TestGetMarkdownFiles:
 
         assert response.status_code == 404
         data = response.json()
-        assert data["detail"]["error"] == "repository_not_installed"
+        assert data["code"] == "REPOSITORY_NOT_INSTALLED"
+        assert data["data"] is None
         mock_github_client.is_repository_authorized.assert_not_called()
 
     @patch("app.controller.repository_controller.discover_markdown_files")
@@ -59,7 +58,9 @@ class TestGetMarkdownFiles:
         )
 
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["code"] == "SUCCESS"
+        assert data["data"] == []
 
     @patch("app.controller.repository_controller.discover_markdown_files")
     def test_returns_markdown_files(self, mock_discover, client):
@@ -92,10 +93,11 @@ class TestGetMarkdownFiles:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 2
-        assert data[0]["path"] == "README.md"
-        assert data[0]["is_default_readme"] is True
-        assert data[1]["path"] == "docs/guide.md"
+        assert data["code"] == "SUCCESS"
+        assert len(data["data"]) == 2
+        assert data["data"][0]["path"] == "README.md"
+        assert data["data"][0]["is_default_readme"] is True
+        assert data["data"][1]["path"] == "docs/guide.md"
 
     @patch("app.controller.repository_controller.discover_markdown_files")
     def test_custom_language_parameter(self, mock_discover, client):
@@ -119,7 +121,7 @@ class TestGetMarkdownFiles:
 
         assert response.status_code == 200
         data = response.json()
-        assert data[0]["target_path_preview"] == "README.ja.md"
+        assert data["data"][0]["target_path_preview"] == "README.ja.md"
 
     @patch("app.controller.repository_controller.discover_markdown_files")
     def test_default_language_is_zh_cn(self, mock_discover, client):
@@ -143,7 +145,7 @@ class TestGetMarkdownFiles:
 
         assert response.status_code == 200
         data = response.json()
-        assert data[0]["target_path_preview"] == "README.zh-CN.md"
+        assert data["data"][0]["target_path_preview"] == "README.zh-CN.md"
 
     @patch("app.controller.repository_controller.discover_markdown_files")
     def test_includes_disabled_reason(self, mock_discover, client):
@@ -160,16 +162,15 @@ class TestGetMarkdownFiles:
             ),
         ]
 
-        # Note: This file exceeds MAX_TOTAL_SIZE, so validate_selection will return error
-        # The endpoint now calls validate_selection, so this will return 400
         response = client.get(
             "/api/repositories/test-owner/test-repo/markdown-files",
             params={"installation_id": "12345"}
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422
         data = response.json()
-        assert data["detail"]["error"] == "selection_limit_exceeded"
+        assert data["code"] == "VALIDATION_ERROR"
+        assert data["data"] is None
 
     @patch("app.controller.repository_controller.discover_markdown_files")
     def test_response_format(self, mock_discover, client):
@@ -193,7 +194,10 @@ class TestGetMarkdownFiles:
 
         assert response.status_code == 200
         data = response.json()
-        file = data[0]
+        assert data["code"] == "SUCCESS"
+        assert data["message"] == "OK"
+        assert "trace_id" in data
+        file = data["data"][0]
 
         # Check all required fields are present
         assert "path" in file
@@ -206,7 +210,7 @@ class TestGetMarkdownFiles:
 
     @patch("app.controller.repository_controller.discover_markdown_files")
     def test_validate_selection_called(self, mock_discover, client):
-        """GIVEN files exceeding limits THEN returns 400 selection_limit_exceeded."""
+        """GIVEN files exceeding limits THEN returns 422 VALIDATION_ERROR."""
         # Create 11 files to exceed MAX_FILE_COUNT (10)
         mock_discover.return_value = [
             MarkdownFileInfo(
@@ -226,7 +230,7 @@ class TestGetMarkdownFiles:
             params={"installation_id": "12345"}
         )
 
-        assert response.status_code == 400
+        assert response.status_code == 422
         data = response.json()
-        assert data["detail"]["error"] == "selection_limit_exceeded"
-        assert "file count" in data["detail"]["message"].lower()
+        assert data["code"] == "VALIDATION_ERROR"
+        assert data["data"] is None

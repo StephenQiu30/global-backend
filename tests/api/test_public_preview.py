@@ -5,6 +5,8 @@ from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.main import create_app
 from app.services.public_repository import (
     PublicPreviewService,
@@ -50,10 +52,13 @@ class TestPublicPreviewSuccess:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["previews"]) == 1
-        assert data["previews"][0]["source_path"] == "README.md"
-        assert data["previews"][0]["target_path"] == "README.zh-CN.md"
-        assert "[zh-CN]" in data["previews"][0]["translated_content"]
+        assert data["code"] == "SUCCESS"
+        assert data["message"] == "OK"
+        assert "trace_id" in data
+        assert len(data["data"]["previews"]) == 1
+        assert data["data"]["previews"][0]["source_path"] == "README.md"
+        assert data["data"]["previews"][0]["target_path"] == "README.zh-CN.md"
+        assert "[zh-CN]" in data["data"]["previews"][0]["translated_content"]
 
     def test_multiple_files_returns_previews(self):
         service = _make_service()
@@ -68,7 +73,8 @@ class TestPublicPreviewSuccess:
 
         assert response.status_code == 200
         data = response.json()
-        assert len(data["previews"]) == 2
+        assert data["code"] == "SUCCESS"
+        assert len(data["data"]["previews"]) == 2
 
     def test_response_has_no_pr_url(self):
         """The response must NOT contain pr_url or pr_number."""
@@ -84,8 +90,8 @@ class TestPublicPreviewSuccess:
 
         assert response.status_code == 200
         data = response.json()
-        assert "pr_url" not in data
-        assert "pr_number" not in data
+        assert "pr_url" not in data["data"]
+        assert "pr_number" not in data["data"]
 
 
 class TestPublicPreviewValidation:
@@ -132,7 +138,11 @@ class TestPublicPreviewErrors:
 
     def test_repository_not_found_returns_404_with_error_code(self):
         mock_client = AsyncMock()
-        mock_client.get_file_content.side_effect = ValueError("repository not found")
+        mock_client.get_file_content.side_effect = AppException(
+            code=ErrorCode.REPOSITORY_NOT_FOUND,
+            message="repository not found",
+            http_status=404,
+        )
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
         app = _make_app(service)
@@ -146,13 +156,17 @@ class TestPublicPreviewErrors:
 
         assert response.status_code == 404
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "REPOSITORY_NOT_FOUND"
         assert "trace_id" in data
         assert data["data"] is None
 
     def test_rate_limited_returns_429_with_error_code(self):
         mock_client = AsyncMock()
-        mock_client.get_file_content.side_effect = ValueError("rate_limited: GitHub API rate limit exceeded")
+        mock_client.get_file_content.side_effect = AppException(
+            code=ErrorCode.GITHUB_RATE_LIMITED,
+            message="GitHub API rate limit exceeded",
+            http_status=429,
+        )
         provider = FakeTranslationProvider()
         service = PublicPreviewService(mock_client, provider)
         app = _make_app(service)
@@ -166,7 +180,7 @@ class TestPublicPreviewErrors:
 
         assert response.status_code == 429
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "GITHUB_RATE_LIMITED"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -185,7 +199,7 @@ class TestPublicPreviewErrors:
 
         assert response.status_code == 400
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "VALIDATION_ERROR"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -205,10 +219,10 @@ class TestPublicPreviewErrors:
 
         assert response.status_code == 422
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "VALIDATION_ERROR"
         assert "trace_id" in data
 
-    def test_translation_failure_returns_502(self):
+    def test_translation_failure_returns_500(self):
         mock_client = AsyncMock()
         mock_client.get_file_content.return_value = "# Content"
         failing_provider = AsyncMock()
@@ -223,9 +237,9 @@ class TestPublicPreviewErrors:
             "language": "zh-CN",
         })
 
-        assert response.status_code == 502
+        assert response.status_code == 500
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "TRANSLATION_ERROR"
         assert "trace_id" in data
         assert data["data"] is None
 

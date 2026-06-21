@@ -1,6 +1,9 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
+
 
 def test_verify_installation_success(client):
     """POST /api/github/installations/verify returns account info on success."""
@@ -22,10 +25,13 @@ def test_verify_installation_success(client):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["installation_id"] == 67890
-    assert data["account_login"] == "test-org"
-    assert data["account_type"] == "Organization"
-    assert data["repository_selection"] == "all"
+    assert data["code"] == "SUCCESS"
+    assert data["message"] == "OK"
+    assert "trace_id" in data
+    assert data["data"]["installation_id"] == 67890
+    assert data["data"]["account_login"] == "test-org"
+    assert data["data"]["account_type"] == "Organization"
+    assert data["data"]["repository_selection"] == "all"
 
 
 def test_verify_installation_no_tokens_in_response(client):
@@ -58,7 +64,11 @@ def test_verify_installation_not_found(client):
     """POST /api/github/installations/verify returns 404 for invalid installation."""
     with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
-        mock_client.get_installation.side_effect = ValueError("not found")
+        mock_client.get_installation.side_effect = AppException(
+            code=ErrorCode.INSTALLATION_NOT_FOUND,
+            message="Installation not found",
+            http_status=404,
+        )
         mock_get_client.return_value = mock_client
 
         response = client.post(
@@ -68,7 +78,7 @@ def test_verify_installation_not_found(client):
 
     assert response.status_code == 404
     data = response.json()
-    assert "code" in data
+    assert data["code"] == "INSTALLATION_NOT_FOUND"
     assert "message" in data
     assert "trace_id" in data
     assert data["data"] is None
@@ -78,7 +88,11 @@ def test_verify_installation_github_api_error(client):
     """POST /api/github/installations/verify returns 502 on GitHub API failure."""
     with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
         mock_client = MagicMock()
-        mock_client.get_installation.side_effect = RuntimeError("GitHub API error")
+        mock_client.get_installation.side_effect = AppException(
+            code=ErrorCode.GITHUB_API_ERROR,
+            message="GitHub API error",
+            http_status=502,
+        )
         mock_get_client.return_value = mock_client
 
         response = client.post(
@@ -88,7 +102,7 @@ def test_verify_installation_github_api_error(client):
 
     assert response.status_code == 502
     data = response.json()
-    assert "code" in data
+    assert data["code"] == "GITHUB_API_ERROR"
     assert "message" in data
     assert "trace_id" in data
     assert data["data"] is None

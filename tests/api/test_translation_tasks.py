@@ -70,9 +70,12 @@ class TestTranslationTasksSuccess:
         })
         assert response.status_code == 201
         data = response.json()
-        assert "task_id" in data
-        assert data["status"] == "queued"
-        assert len(data["task_id"]) == 36  # uuid4() with hyphens
+        assert data["code"] == "SUCCESS"
+        assert data["message"] == "OK"
+        assert "trace_id" in data
+        assert "task_id" in data["data"]
+        assert data["data"]["status"] == "queued"
+        assert len(data["data"]["task_id"]) == 36  # uuid4() with hyphens
 
     def test_create_task_multiple_files(self, client):
         """POST /api/translation-tasks with multiple files returns task_id."""
@@ -85,7 +88,7 @@ class TestTranslationTasksSuccess:
         })
         assert response.status_code == 201
         data = response.json()
-        assert data["status"] == "queued"
+        assert data["data"]["status"] == "queued"
 
 
 class TestTranslationTasksValidation:
@@ -170,7 +173,7 @@ class TestTranslationTasksLanguageValidation:
         })
         assert response.status_code == 400
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "UNSUPPORTED_LANGUAGE"
         assert "trace_id" in data
         assert data["data"] is None
 

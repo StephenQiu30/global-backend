@@ -93,9 +93,12 @@ class TestCreateTranslationTaskPersistence:
         })
         assert response.status_code == 201
         data = response.json()
-        assert "task_id" in data
-        assert data["status"] == "queued"
-        assert len(data["task_id"]) == 36  # uuid4() with hyphens
+        assert data["code"] == "SUCCESS"
+        assert data["message"] == "OK"
+        assert "trace_id" in data
+        assert "task_id" in data["data"]
+        assert data["data"]["status"] == "queued"
+        assert len(data["data"]["task_id"]) == 36  # uuid4() with hyphens
 
     def test_create_task_enqueues_task_id(self, client, queue):
         """POST /api/translation-tasks enqueues the task ID."""
@@ -107,7 +110,7 @@ class TestCreateTranslationTaskPersistence:
             "language": "zh-CN",
         })
         data = response.json()
-        assert data["task_id"] in queue.enqueued_ids
+        assert data["data"]["task_id"] in queue.enqueued_ids
 
     def test_create_task_multiple_files(self, client):
         """POST /api/translation-tasks with multiple files returns task_id."""
@@ -120,7 +123,7 @@ class TestCreateTranslationTaskPersistence:
         })
         assert response.status_code == 201
         data = response.json()
-        assert data["status"] == "queued"
+        assert data["data"]["status"] == "queued"
 
     def test_create_task_unsupported_language(self, client):
         """POST /api/translation-tasks with unsupported language returns 400."""
@@ -133,8 +136,9 @@ class TestCreateTranslationTaskPersistence:
         })
         assert response.status_code == 400
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "UNSUPPORTED_LANGUAGE"
         assert "trace_id" in data
+        assert data["data"] is None
 
     def test_create_task_validation_error(self, client):
         """POST /api/translation-tasks with missing fields returns 422."""
@@ -159,15 +163,16 @@ class TestGetTaskStatus:
             "files": ["README.md"],
             "language": "zh-CN",
         })
-        task_id = create_resp.json()["task_id"]
+        task_id = create_resp.json()["data"]["task_id"]
 
         response = client.get(f"/api/translation-tasks/{task_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["task_id"] == task_id
-        assert data["status"] == "queued"
-        assert data["repository"] == "owner/repo"
-        assert data["language"] == "zh-CN"
+        assert data["code"] == "SUCCESS"
+        assert data["data"]["task_id"] == task_id
+        assert data["data"]["status"] == "queued"
+        assert data["data"]["repository"] == "owner/repo"
+        assert data["data"]["language"] == "zh-CN"
 
     def test_get_task_status_with_result(self, client, task_service, db_session):
         """GET returns succeeded status with result fields."""
@@ -178,7 +183,7 @@ class TestGetTaskStatus:
             "files": ["README.md"],
             "language": "zh-CN",
         })
-        task_id = create_resp.json()["task_id"]
+        task_id = create_resp.json()["data"]["task_id"]
 
         import asyncio
         from app.domain.task import TaskStatus
@@ -197,17 +202,17 @@ class TestGetTaskStatus:
         response = client.get(f"/api/translation-tasks/{task_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "succeeded"
-        assert data["pr_url"] == "https://github.com/owner/repo/pull/42"
-        assert data["pr_number"] == 42
-        assert len(data["file_mappings"]) == 1
+        assert data["data"]["status"] == "succeeded"
+        assert data["data"]["pr_url"] == "https://github.com/owner/repo/pull/42"
+        assert data["data"]["pr_number"] == 42
+        assert len(data["data"]["file_mappings"]) == 1
 
     def test_get_task_status_not_found(self, client):
         """GET returns 404 for unknown task_id."""
         response = client.get("/api/translation-tasks/nonexistent-task-id")
         assert response.status_code == 404
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "TASK_NOT_FOUND"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -220,7 +225,7 @@ class TestGetTaskStatus:
             "files": ["README.md"],
             "language": "zh-CN",
         })
-        task_id = create_resp.json()["task_id"]
+        task_id = create_resp.json()["data"]["task_id"]
 
         import asyncio
         from app.domain.task import TaskStatus
@@ -238,9 +243,9 @@ class TestGetTaskStatus:
         response = client.get(f"/api/translation-tasks/{task_id}")
         assert response.status_code == 200
         data = response.json()
-        assert data["status"] == "failed"
-        assert data["error_code"] == "translation_error"
-        assert data["error_message"] == "Translation provider returned an error"
+        assert data["data"]["status"] == "failed"
+        assert data["data"]["error_code"] == "translation_error"
+        assert data["data"]["error_message"] == "Translation provider returned an error"
 
 
 class TestGetFilePreviews:
@@ -255,7 +260,7 @@ class TestGetFilePreviews:
             "files": ["README.md", "docs/guide.md"],
             "language": "zh-CN",
         })
-        task_id = create_resp.json()["task_id"]
+        task_id = create_resp.json()["data"]["task_id"]
 
         import asyncio
         from app.domain.task import TaskStatus
@@ -277,10 +282,11 @@ class TestGetFilePreviews:
         response = client.get(f"/api/translation-tasks/{task_id}/file-previews")
         assert response.status_code == 200
         data = response.json()
-        assert len(data) == 2
-        assert data[0]["source_path"] == "README.md"
-        assert data[0]["target_path"] == "README.zh-CN.md"
-        assert data[0]["status"] == "translated"
+        assert data["code"] == "SUCCESS"
+        assert len(data["data"]) == 2
+        assert data["data"][0]["source_path"] == "README.md"
+        assert data["data"][0]["target_path"] == "README.zh-CN.md"
+        assert data["data"][0]["status"] == "translated"
 
     def test_get_file_previews_empty(self, client):
         """GET returns empty list for task with no file previews."""
@@ -291,18 +297,20 @@ class TestGetFilePreviews:
             "files": ["README.md"],
             "language": "zh-CN",
         })
-        task_id = create_resp.json()["task_id"]
+        task_id = create_resp.json()["data"]["task_id"]
 
         response = client.get(f"/api/translation-tasks/{task_id}/file-previews")
         assert response.status_code == 200
-        assert response.json() == []
+        data = response.json()
+        assert data["code"] == "SUCCESS"
+        assert data["data"] == []
 
     def test_get_file_previews_not_found(self, client):
         """GET returns 404 for unknown task_id."""
         response = client.get("/api/translation-tasks/nonexistent/file-previews")
         assert response.status_code == 404
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "TASK_NOT_FOUND"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -330,8 +338,9 @@ class TestInstallationVerificationPersistence:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["installation_id"] == 67890
-        assert data["account_login"] == "test-org"
+        assert data["code"] == "SUCCESS"
+        assert data["data"]["installation_id"] == 67890
+        assert data["data"]["account_login"] == "test-org"
 
         # Verify the record was actually persisted in the database
         import asyncio

@@ -8,6 +8,8 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.services.github_app import RepositoryInfo
 
 
@@ -110,7 +112,11 @@ class TestErrorResponsesNoStackTrace:
         """404 error response must not contain traceback."""
         with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
-            mock_client.get_installation.side_effect = ValueError("not found")
+            mock_client.get_installation.side_effect = AppException(
+                code=ErrorCode.INSTALLATION_NOT_FOUND,
+                message="Installation not found",
+                http_status=404,
+            )
             mock_get_client.return_value = mock_client
 
             response = client.post(
@@ -126,7 +132,11 @@ class TestErrorResponsesNoStackTrace:
         """502 error response must not contain traceback."""
         with patch("app.controller.installation_controller.get_github_client") as mock_get_client:
             mock_client = MagicMock()
-            mock_client.get_installation.side_effect = RuntimeError("API error")
+            mock_client.get_installation.side_effect = AppException(
+                code=ErrorCode.GITHUB_API_ERROR,
+                message="GitHub API error",
+                http_status=502,
+            )
             mock_get_client.return_value = mock_client
 
             response = client.post(

@@ -2,6 +2,7 @@ import httpx
 import pytest
 import respx
 
+from app.core.exceptions import AppException
 from app.services.github_app import GitHubAppClient
 
 
@@ -40,12 +41,12 @@ class TestGitHubAppClient:
 
     @respx.mock
     def test_get_installation_raises_on_not_found(self, github_client):
-        """Client must raise when installation not found."""
+        """Client must raise AppException when installation not found."""
         respx.get("https://api.github.com/app/installations/99999").mock(
             return_value=httpx.Response(404, json={"message": "Not Found"})
         )
 
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(AppException, match="not found"):
             github_client.get_installation(99999)
 
     @respx.mock
@@ -187,5 +188,5 @@ class TestGitHubRepositoryTree:
             return_value=httpx.Response(404, json={"message": "Not Found"})
         )
 
-        with pytest.raises(ValueError, match="not found"):
+        with pytest.raises(AppException, match="not found"):
             github_client.get_repository_tree(12345, "owner/repo", "main")
