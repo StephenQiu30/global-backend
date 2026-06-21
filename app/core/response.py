@@ -2,10 +2,9 @@
 
 from contextvars import ContextVar
 from enum import Enum
-from typing import Any, Generic, TypeVar
+from typing import Generic, TypeVar
 from uuid import uuid4
 
-from fastapi import Request
 from pydantic import BaseModel
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
