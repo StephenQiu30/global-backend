@@ -5,13 +5,16 @@ Validates:
 - GET /api/translation-tasks/{task_id} returns persisted status
 - GET /api/translation-tasks/{task_id}/file-previews returns file metadata
 - Unknown task IDs return task_not_found errors
+- POST /api/github/installations/verify persists account metadata
 """
 
 import pytest
 from unittest.mock import patch, MagicMock
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 
 from app.db.base import Base
+from app.models.installation_account_model import InstallationAccountModel
 from app.repositories.translation_task_repository import TranslationTaskRepository
 from app.repositories.installation_account_repository import InstallationAccountRepository
 from app.queues.translation_task_queue import TranslationTaskQueue
@@ -55,9 +58,19 @@ async def task_service(db_session, queue):
 
 
 @pytest.fixture
-def app(task_service):
-    """Create a test app with the task service wired."""
-    return create_app(task_service=task_service)
+async def installation_service(db_session):
+    """Create an InstallationService for testing."""
+    repo = InstallationAccountRepository(db_session)
+    return InstallationService(repo)
+
+
+@pytest.fixture
+def app(task_service, installation_service):
+    """Create a test app with services wired."""
+    return create_app(
+        task_service=task_service,
+        installation_service=installation_service,
+    )
 
 
 @pytest.fixture
@@ -157,7 +170,6 @@ class TestGetTaskStatus:
 
     def test_get_task_status_with_result(self, client, task_service, db_session):
         """GET returns succeeded status with result fields."""
-        # Create a task
         create_resp = client.post("/api/translation-tasks", json={
             "installation_id": "inst-123",
             "repository": "owner/repo",
@@ -167,7 +179,6 @@ class TestGetTaskStatus:
         })
         task_id = create_resp.json()["task_id"]
 
-        # Simulate task completion via repository
         import asyncio
 
         async def update():
@@ -295,7 +306,7 @@ class TestGetFilePreviews:
 class TestInstallationVerificationPersistence:
     """Tests for installation verification with persistence."""
 
-    def test_verify_installation_persists_metadata(self, client):
+    def test_verify_installation_persists_metadata(self, client, db_session):
         """POST /api/github/installations/verify persists account metadata."""
         mock_result = MagicMock()
         mock_result.installation_id = 67890
@@ -317,3 +328,18 @@ class TestInstallationVerificationPersistence:
         data = response.json()
         assert data["installation_id"] == 67890
         assert data["account_login"] == "test-org"
+
+        # Verify the record was actually persisted in the database
+        import asyncio
+
+        async def check_db():
+            stmt = select(InstallationAccountModel).where(
+                InstallationAccountModel.installation_id == 67890
+            )
+            result = await db_session.execute(stmt)
+            return result.scalar_one_or_none()
+
+        record = asyncio.get_event_loop().run_until_complete(check_db())
+        assert record is not None
+        assert record.account_login == "test-org"
+        assert record.account_type == "Organization"

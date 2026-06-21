@@ -2,7 +2,10 @@
 
 from fastapi import FastAPI
 
-from app.api.installations import router as installations_router
+from app.api.installations import (
+    router as installations_router,
+    _get_installation_service,
+)
 from app.api.languages import router as languages_router
 from app.api.repositories import router as repositories_router
 from app.api.tasks import router as tasks_router, _get_task_service
@@ -10,18 +13,21 @@ from app.api.public_preview import (
     router as public_preview_router,
     _get_public_preview_service,
 )
+from app.services.installation_service import InstallationService
 from app.services.public_repository import PublicPreviewService
 from app.services.translation_task_service import TranslationTaskService
 
 
 def create_app(
     task_service: TranslationTaskService | None = None,
+    installation_service: InstallationService | None = None,
     public_preview_service: PublicPreviewService | None = None,
 ) -> FastAPI:
     """Create and configure the FastAPI application.
 
     Args:
         task_service: Optional TranslationTaskService instance (for testing)
+        installation_service: Optional InstallationService instance (for testing)
         public_preview_service: Optional PublicPreviewService instance (for testing)
 
     Returns:
@@ -35,6 +41,11 @@ def create_app(
 
     if task_service is not None:
         app.dependency_overrides[_get_task_service] = lambda: task_service
+
+    if installation_service is not None:
+        app.dependency_overrides[_get_installation_service] = (
+            lambda: installation_service
+        )
 
     if public_preview_service is not None:
         app.dependency_overrides[_get_public_preview_service] = (

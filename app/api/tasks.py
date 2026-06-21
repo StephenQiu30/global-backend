@@ -3,7 +3,6 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
 
 from app.core.errors import AppError
 from app.dto.translation_task_dto import TranslationTaskCreateDTO
@@ -58,17 +57,6 @@ def map_error_to_response(error: Exception) -> HTTPException:
             "retryable": False,
         },
     )
-
-
-# Legacy request model kept for backward compatibility.
-class TranslationTaskRequest(BaseModel):
-    """Request model for POST /api/translation-tasks."""
-
-    installation_id: str = Field(..., min_length=1)
-    repository: str = Field(..., min_length=1)
-    base_branch: str = Field(..., min_length=1)
-    files: List[str] = Field(..., min_length=1)
-    language: str = Field(..., min_length=1)
 
 
 def _get_task_service():
