@@ -1,31 +1,11 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 
 from app.core.config import Settings
+from app.dto.installation_dto import VerifyInstallationDTO
 from app.services.github_app import GitHubAppClient
+from app.vo.installation_vo import InstallationVO, RepositoryItemVO, RepositoryListVO
 
 router = APIRouter()
-
-
-class VerifyRequest(BaseModel):
-    installation_id: int
-
-
-class InstallationResponse(BaseModel):
-    installation_id: int
-    account_login: str
-    account_type: str
-    repository_selection: str
-
-
-class RepositoryItem(BaseModel):
-    full_name: str
-    default_branch: str
-    private: bool
-
-
-class RepositoryListResponse(BaseModel):
-    repositories: list[RepositoryItem]
 
 
 def get_github_client() -> GitHubAppClient:
@@ -36,12 +16,12 @@ def get_github_client() -> GitHubAppClient:
     )
 
 
-@router.post("/installations/verify", response_model=InstallationResponse)
-def verify_installation(body: VerifyRequest):
+@router.post("/installations/verify", response_model=InstallationVO)
+def verify_installation(body: VerifyInstallationDTO):
     client = get_github_client()
     try:
         info = client.get_installation(body.installation_id)
-        return InstallationResponse(
+        return InstallationVO(
             installation_id=info.installation_id,
             account_login=info.account_login,
             account_type=info.account_type,
@@ -55,15 +35,15 @@ def verify_installation(body: VerifyRequest):
 
 @router.get(
     "/installations/{installation_id}/repositories",
-    response_model=RepositoryListResponse,
+    response_model=RepositoryListVO,
 )
 def list_installation_repositories(installation_id: int):
     client = get_github_client()
     try:
         repos = client.get_installation_repos(installation_id)
-        return RepositoryListResponse(
+        return RepositoryListVO(
             repositories=[
-                RepositoryItem(
+                RepositoryItemVO(
                     full_name=r.full_name,
                     default_branch=r.default_branch,
                     private=r.private,
