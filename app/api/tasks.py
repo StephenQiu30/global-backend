@@ -2,9 +2,13 @@
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.application.translation_task_service import (
+    TranslationTaskRequest,
+    TranslationTaskService,
+    UnsupportedLanguageError,
+)
 from app.core.errors import AppError
-from app.domain.languages import validate_language_code
-from app.domain.task import Task, TaskResult
+from app.domain.task import TaskResult
 from app.dto.translation_task_dto import CreateTranslationTaskDTO
 from app.services.task_runner import TaskRunner
 from app.vo.translation_task_vo import TranslationTaskVO, FileMappingVO
@@ -77,33 +81,42 @@ def _get_task_runner() -> TaskRunner:
     raise NotImplementedError("TaskRunner not configured")
 
 
+def _get_translation_task_service(
+    task_runner: TaskRunner = Depends(_get_task_runner),
+) -> TranslationTaskService:
+    """Dependency to get TranslationTaskService."""
+    return TranslationTaskService(task_runner=task_runner)
+
+
 @router.post("/translation-tasks", response_model=TranslationTaskVO)
 async def create_translation_task(
     request: CreateTranslationTaskDTO,
-    task_runner: TaskRunner = Depends(_get_task_runner),
+    service: TranslationTaskService = Depends(_get_translation_task_service),
 ) -> TranslationTaskVO:
     """Create and execute a translation task synchronously.
 
     Args:
         request: Translation task request DTO
-        task_runner: Task runner service
+        service: Translation task service
 
     Returns:
         TranslationTaskVO with status, PR info, or error details
     """
-    if not validate_language_code(request.language):
+    try:
+        task_request = TranslationTaskRequest(
+            installation_id=request.installation_id,
+            repository=request.repository,
+            base_branch=request.base_branch,
+            files=request.files,
+            language=request.language,
+        )
+        result = await service.create_task(task_request)
+        return _to_translation_task_vo(result)
+    except UnsupportedLanguageError as e:
         raise HTTPException(
             status_code=400,
-            detail={"error": "unsupported_language", "message": f"Language '{request.language}' is not supported"},
+            detail={
+                "error": "unsupported_language",
+                "message": f"Language '{e.language}' is not supported",
+            },
         )
-
-    task = Task(
-        task_id="generated",
-        installation_id=request.installation_id,
-        repository=request.repository,
-        base_branch=request.base_branch,
-        files=request.files,
-        language=request.language,
-    )
-    result = await task_runner.run(task)
-    return _to_translation_task_vo(result)

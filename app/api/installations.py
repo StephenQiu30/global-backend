@@ -1,5 +1,12 @@
+"""Installation API endpoints."""
+
 from fastapi import APIRouter, HTTPException
 
+from app.application.installation_service import (
+    GitHubApiError,
+    InstallationNotFoundError,
+    InstallationService,
+)
 from app.core.config import Settings
 from app.dto.installation_dto import VerifyInstallationDTO
 from app.services.github_app import GitHubAppClient
@@ -16,20 +23,24 @@ def get_github_client() -> GitHubAppClient:
     )
 
 
+def get_installation_service() -> InstallationService:
+    return InstallationService(github_client=get_github_client())
+
+
 @router.post("/installations/verify", response_model=InstallationVO)
 def verify_installation(body: VerifyInstallationDTO):
-    client = get_github_client()
+    service = get_installation_service()
     try:
-        info = client.get_installation(body.installation_id)
+        result = service.verify_installation(body.installation_id)
         return InstallationVO(
-            installation_id=info.installation_id,
-            account_login=info.account_login,
-            account_type=info.account_type,
-            repository_selection=info.repository_selection,
+            installation_id=result.installation_id,
+            account_login=result.account_login,
+            account_type=result.account_type,
+            repository_selection=result.repository_selection,
         )
-    except ValueError:
+    except InstallationNotFoundError:
         raise HTTPException(status_code=404, detail="Installation not found")
-    except RuntimeError:
+    except GitHubApiError:
         raise HTTPException(status_code=502, detail="GitHub API error")
 
 
@@ -38,9 +49,9 @@ def verify_installation(body: VerifyInstallationDTO):
     response_model=RepositoryListVO,
 )
 def list_installation_repositories(installation_id: int):
-    client = get_github_client()
+    service = get_installation_service()
     try:
-        repos = client.get_installation_repos(installation_id)
+        result = service.list_repositories(installation_id)
         return RepositoryListVO(
             repositories=[
                 RepositoryItemVO(
@@ -48,10 +59,10 @@ def list_installation_repositories(installation_id: int):
                     default_branch=r.default_branch,
                     private=r.private,
                 )
-                for r in repos
+                for r in result.repositories
             ]
         )
-    except ValueError:
+    except InstallationNotFoundError:
         raise HTTPException(status_code=404, detail="Installation not found")
-    except RuntimeError:
+    except GitHubApiError:
         raise HTTPException(status_code=502, detail="GitHub API error")
