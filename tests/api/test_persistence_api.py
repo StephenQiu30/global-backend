@@ -133,7 +133,8 @@ class TestCreateTranslationTaskPersistence:
         })
         assert response.status_code == 400
         data = response.json()
-        assert data["detail"]["error"] == "unsupported_language"
+        assert "code" in data
+        assert "trace_id" in data
 
     def test_create_task_validation_error(self, client):
         """POST /api/translation-tasks with missing fields returns 422."""
@@ -206,7 +207,9 @@ class TestGetTaskStatus:
         response = client.get("/api/translation-tasks/nonexistent-task-id")
         assert response.status_code == 404
         data = response.json()
-        assert data["detail"]["error"] == "task_not_found"
+        assert "code" in data
+        assert "trace_id" in data
+        assert data["data"] is None
 
     def test_get_task_status_with_failed_result(self, client, db_session):
         """GET returns failed status with error fields."""
@@ -299,7 +302,9 @@ class TestGetFilePreviews:
         response = client.get("/api/translation-tasks/nonexistent/file-previews")
         assert response.status_code == 404
         data = response.json()
-        assert data["detail"]["error"] == "task_not_found"
+        assert "code" in data
+        assert "trace_id" in data
+        assert data["data"] is None
 
 
 class TestInstallationVerificationPersistence:

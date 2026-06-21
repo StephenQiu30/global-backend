@@ -68,7 +68,10 @@ def test_verify_installation_not_found(client):
 
     assert response.status_code == 404
     data = response.json()
-    assert "detail" in data
+    assert "code" in data
+    assert "message" in data
+    assert "trace_id" in data
+    assert data["data"] is None
 
 
 def test_verify_installation_github_api_error(client):
@@ -85,7 +88,10 @@ def test_verify_installation_github_api_error(client):
 
     assert response.status_code == 502
     data = response.json()
-    assert "detail" in data
+    assert "code" in data
+    assert "message" in data
+    assert "trace_id" in data
+    assert data["data"] is None
 
 
 def test_verify_installation_missing_body(client):

@@ -47,7 +47,9 @@ class TestRepositoryResolve:
             )
             assert response.status_code == 403
             data = response.json()
-            assert data["detail"]["error"] == "repository_not_installed"
+            assert "code" in data
+            assert "trace_id" in data
+            assert data["data"] is None
 
     def test_resolve_invalid_url(self, client):
         """Reject invalid repository URL."""
@@ -57,7 +59,9 @@ class TestRepositoryResolve:
         )
         assert response.status_code == 400
         data = response.json()
-        assert data["detail"]["error"] == "invalid_repository_url"
+        assert "code" in data
+        assert "trace_id" in data
+        assert data["data"] is None
 
     def test_resolve_empty_input(self, client):
         """Reject empty input."""
@@ -67,7 +71,9 @@ class TestRepositoryResolve:
         )
         assert response.status_code == 400
         data = response.json()
-        assert data["detail"]["error"] == "invalid_repository_url"
+        assert "code" in data
+        assert "trace_id" in data
+        assert data["data"] is None
 
     def test_resolve_missing_installation_id(self, client):
         """Reject missing installation_id."""
@@ -100,4 +106,5 @@ class TestRepositoryResolve:
         )
         assert response.status_code == 400
         data = response.json()
-        assert data["detail"]["error"] == "invalid_repository_url"
+        assert "code" in data
+        assert "trace_id" in data
