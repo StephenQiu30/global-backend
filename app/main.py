@@ -2,16 +2,27 @@
 
 from fastapi import FastAPI
 
-from app.api.installations import router as installations_router
-from app.api.languages import router as languages_router
-from app.api.repositories import router as repositories_router
-from app.api.tasks import router as tasks_router, _get_task_runner
-from app.api.public_preview import (
+from app.controller.installation_controller import router as installations_router
+from app.controller.language_controller import router as languages_router
+from app.controller.repository_controller import router as repositories_router
+from app.controller.translation_task_controller import (
+    router as tasks_router,
+    _get_task_runner,
+)
+from app.controller.public_preview_controller import (
     router as public_preview_router,
     _get_public_preview_service,
 )
 from app.services.task_runner import TaskRunner
 from app.services.public_repository import PublicPreviewService
+
+OPENAPI_TAGS = [
+    {"name": "installations", "description": "GitHub App installation management"},
+    {"name": "repositories", "description": "Repository discovery and authorization"},
+    {"name": "languages", "description": "Supported language listing"},
+    {"name": "translation-tasks", "description": "Translation task execution"},
+    {"name": "public-preview", "description": "Public repository translation preview"},
+]
 
 
 def create_app(
@@ -31,6 +42,7 @@ def create_app(
         title="GitHub Markdown Translator",
         description="Backend API for GitHub Markdown translation",
         version="0.1.0",
+        openapi_tags=OPENAPI_TAGS,
     )
 
     if task_runner is not None:

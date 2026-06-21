@@ -25,7 +25,7 @@ class TestRepositoryResolveAuthorization:
 
     def test_unauthorized_repo_rejected(self, client):
         """Unauthorized repository cannot resolve."""
-        with patch("app.api.repositories.get_github_client") as mock_get_client:
+        with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.return_value = False
             response = client.post(
@@ -38,7 +38,7 @@ class TestRepositoryResolveAuthorization:
 
     def test_authorized_repo_proceeds(self, client):
         """Authorized repository resolves successfully."""
-        with patch("app.api.repositories.get_github_client") as mock_get_client:
+        with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_authorized_repository(mock_client)
             response = client.post(
@@ -51,7 +51,7 @@ class TestRepositoryResolveAuthorization:
 
     def test_github_api_error_returns_502(self, client):
         """GitHub API errors return 502 without leaking internals."""
-        with patch("app.api.repositories.get_github_client") as mock_get_client:
+        with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.side_effect = RuntimeError(
                 "GitHub API error"
@@ -68,7 +68,7 @@ class TestScanAuthorization:
 
     def test_scan_unauthorized_repo_rejected(self, client):
         """Unauthorized repository cannot scan Markdown files."""
-        with patch("app.api.repositories.get_github_client") as mock_get_client:
+        with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.return_value = False
             response = client.post(
@@ -83,7 +83,7 @@ class TestTaskCreationAuthorization:
 
     def test_task_unauthorized_repo_rejected(self, client):
         """Unauthorized repository cannot create translation task."""
-        with patch("app.api.repositories.get_github_client") as mock_get_client:
+        with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.return_value = False
             response = client.post(

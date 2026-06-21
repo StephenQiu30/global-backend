@@ -20,7 +20,7 @@ class TestRepositoryResolve:
     def test_resolve_authorized_repository(self, client):
         """Resolve authorized repository successfully."""
         with patch(
-            "app.api.repositories.get_github_client"
+            "app.controller.repository_controller.get_github_client"
         ) as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_authorized_repository(mock_client)
@@ -37,7 +37,7 @@ class TestRepositoryResolve:
     def test_resolve_unauthorized_repository(self, client):
         """Reject unauthorized repository."""
         with patch(
-            "app.api.repositories.get_github_client"
+            "app.controller.repository_controller.get_github_client"
         ) as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_client.is_repository_authorized.return_value = False
@@ -80,7 +80,7 @@ class TestRepositoryResolve:
     def test_resolve_full_https_url(self, client):
         """Resolve full HTTPS URL."""
         with patch(
-            "app.api.repositories.get_github_client"
+            "app.controller.repository_controller.get_github_client"
         ) as mock_get_client:
             mock_client = mock_get_client.return_value
             mock_authorized_repository(mock_client)
