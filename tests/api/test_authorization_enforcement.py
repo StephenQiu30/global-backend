@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 import pytest
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.services.github_app import RepositoryInfo
 
 
@@ -34,7 +36,7 @@ class TestRepositoryResolveAuthorization:
             )
         assert response.status_code == 403
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "REPOSITORY_NOT_INSTALLED"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -49,20 +51,26 @@ class TestRepositoryResolveAuthorization:
             )
         assert response.status_code == 200
         data = response.json()
-        assert data["full_name"] == "owner/repo"
+        assert data["code"] == "SUCCESS"
+        assert data["data"]["full_name"] == "owner/repo"
 
     def test_github_api_error_returns_502(self, client):
         """GitHub API errors return 502 without leaking internals."""
         with patch("app.controller.repository_controller.get_github_client") as mock_get_client:
             mock_client = mock_get_client.return_value
-            mock_client.is_repository_authorized.side_effect = RuntimeError(
-                "GitHub API error"
+            mock_client.is_repository_authorized.side_effect = AppException(
+                code=ErrorCode.GITHUB_API_ERROR,
+                message="GitHub API error",
+                http_status=502,
             )
             response = client.post(
                 "/api/repositories/resolve",
                 json={"input": "owner/repo", "installation_id": 12345},
             )
         assert response.status_code == 502
+        data = response.json()
+        assert data["code"] == "GITHUB_API_ERROR"
+        assert data["data"] is None
 
 
 class TestScanAuthorization:

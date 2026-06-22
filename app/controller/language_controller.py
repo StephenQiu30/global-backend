@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter
 
+from app.core.response import ApiResponseVO, success_response
 from app.domain.languages import Language, SUPPORTED_LANGUAGES
 
 router = APIRouter(tags=["languages"])
@@ -9,13 +10,13 @@ router = APIRouter(tags=["languages"])
 
 @router.get(
     "/languages",
-    response_model=list[Language],
+    response_model=ApiResponseVO[list[Language]],
     operation_id="get_languages",
 )
-def get_languages() -> list[Language]:
+def get_languages() -> ApiResponseVO[list[Language]]:
     """Get list of supported languages.
 
     Returns:
-        List of supported Language objects with code and label
+        ApiResponseVO containing list of supported Language objects with code and label
     """
-    return SUPPORTED_LANGUAGES
+    return success_response(SUPPORTED_LANGUAGES)

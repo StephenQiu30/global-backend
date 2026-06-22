@@ -1,5 +1,7 @@
 """Application service for translation task lifecycle."""
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.domain.task import TaskStatus
 from app.domain.languages import validate_language_code
 from app.repositories.translation_task_repository import TranslationTaskRepository
@@ -43,10 +45,14 @@ class TranslationTaskService:
             TranslationTaskCreateVO with task_id and queued status.
 
         Raises:
-            ValueError: If language code is not supported.
+            AppException: If language code is not supported.
         """
         if not validate_language_code(language):
-            raise ValueError(f"Language '{language}' is not supported")
+            raise AppException(
+                code=ErrorCode.UNSUPPORTED_LANGUAGE,
+                message=f"Language '{language}' is not supported",
+                http_status=400,
+            )
 
         task = await self._repo.create(
             installation_id=installation_id,

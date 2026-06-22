@@ -5,6 +5,8 @@ import base64
 import httpx
 from pydantic import BaseModel
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.domain.markdown_files import (
     is_supported_markdown_path,
     is_safe_path,
@@ -93,10 +95,14 @@ class PublicRepositoryClient:
             File content as string
 
         Raises:
-            ValueError: If path is unsafe or file not found
+            AppException: If path is unsafe or file not found
         """
         if not is_safe_path(path):
-            raise ValueError(f"unsafe path: {path}")
+            raise AppException(
+                code=ErrorCode.VALIDATION_ERROR,
+                message=f"unsafe path: {path}",
+                http_status=400,
+            )
 
         url = f"{self._GITHUB_API}/repos/{owner}/{repo}/contents/{path}"
         params = {"ref": branch}
@@ -118,20 +124,30 @@ class PublicRepositoryClient:
             Tuple of (status_code, response_json)
 
         Raises:
-            ValueError: On 404 (not found) or 403/429 (rate limited)
+            AppException: On 404 (not found) or 403/429 (rate limited)
         """
         async with httpx.AsyncClient() as client:
             response = await client.get(url, params=params, timeout=10.0)
 
             if response.status_code == 404:
-                raise ValueError("repository not found")
+                raise AppException(
+                    code=ErrorCode.REPOSITORY_NOT_FOUND,
+                    message="repository not found",
+                    http_status=404,
+                )
 
             if response.status_code in (403, 429):
-                raise ValueError("rate_limited: GitHub API rate limit exceeded")
+                raise AppException(
+                    code=ErrorCode.GITHUB_RATE_LIMITED,
+                    message="GitHub API rate limit exceeded",
+                    http_status=429,
+                )
 
             if response.status_code >= 400:
-                raise RuntimeError(
-                    f"GitHub API error: {response.status_code}"
+                raise AppException(
+                    code=ErrorCode.GITHUB_API_ERROR,
+                    message=f"GitHub API error: {response.status_code}",
+                    http_status=502,
                 )
 
             return response.status_code, response.json()
@@ -172,22 +188,36 @@ class PublicPreviewService:
             PublicPreviewResult with translated previews
 
         Raises:
-            ValueError: For invalid inputs or not-found errors
+            AppException: For invalid inputs or not-found errors
         """
         # Validate file count
         if len(files) > MAX_FILE_COUNT:
-            raise ValueError(
-                f"too many files: {len(files)} exceeds limit of {MAX_FILE_COUNT}"
+            raise AppException(
+                code=ErrorCode.VALIDATION_ERROR,
+                message=f"too many files: {len(files)} exceeds limit of {MAX_FILE_COUNT}",
+                http_status=422,
             )
 
         # Validate inputs
         for path in files:
             if not is_safe_path(path):
-                raise ValueError(f"unsafe path: {path}")
+                raise AppException(
+                    code=ErrorCode.VALIDATION_ERROR,
+                    message=f"unsafe path: {path}",
+                    http_status=400,
+                )
             if not is_supported_markdown_path(path):
-                raise ValueError(f"file not supported: {path}")
+                raise AppException(
+                    code=ErrorCode.VALIDATION_ERROR,
+                    message=f"file not supported: {path}",
+                    http_status=400,
+                )
             if is_in_excluded_directory(path):
-                raise ValueError(f"path in excluded directory: {path}")
+                raise AppException(
+                    code=ErrorCode.VALIDATION_ERROR,
+                    message=f"path in excluded directory: {path}",
+                    http_status=400,
+                )
 
         owner, repo = repository.split("/", 1)
         previews: list[FilePreview] = []
@@ -199,12 +229,21 @@ class PublicPreviewService:
             )
             total_size += len(content.encode("utf-8"))
             if total_size > MAX_TOTAL_SIZE:
-                raise ValueError(
-                    f"total content size exceeds limit of {MAX_TOTAL_SIZE} bytes"
+                raise AppException(
+                    code=ErrorCode.VALIDATION_ERROR,
+                    message=f"total content size exceeds limit of {MAX_TOTAL_SIZE} bytes",
+                    http_status=422,
                 )
-            translated = await self._provider.translate_markdown(
-                content, language,
-            )
+            try:
+                translated = await self._provider.translate_markdown(
+                    content, language,
+                )
+            except RuntimeError:
+                raise AppException(
+                    code=ErrorCode.TRANSLATION_ERROR,
+                    message="Translation provider returned an error",
+                    http_status=500,
+                )
             target_path = target_translation_path(source_path, language)
             previews.append(FilePreview(
                 source_path=source_path,

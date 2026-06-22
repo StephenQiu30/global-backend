@@ -37,13 +37,6 @@ class FilePreviewVO(BaseModel):
     translated_content: Optional[str] = None
 
 
-class TaskNotFoundVO(BaseModel):
-    """Error response VO for unknown task IDs."""
-
-    error: str = "task_not_found"
-    message: str
-
-
 class PublicPreviewVO(BaseModel):
     """Response VO for POST /api/public-preview."""
 

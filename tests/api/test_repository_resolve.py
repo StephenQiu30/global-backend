@@ -30,9 +30,12 @@ class TestRepositoryResolve:
             )
             assert response.status_code == 200
             data = response.json()
-            assert data["full_name"] == "owner/repo"
-            assert "default_branch" in data
-            assert "private" in data
+            assert data["code"] == "SUCCESS"
+            assert data["message"] == "OK"
+            assert "trace_id" in data
+            assert data["data"]["full_name"] == "owner/repo"
+            assert "default_branch" in data["data"]
+            assert "private" in data["data"]
 
     def test_resolve_unauthorized_repository(self, client):
         """Reject unauthorized repository."""
@@ -47,7 +50,7 @@ class TestRepositoryResolve:
             )
             assert response.status_code == 403
             data = response.json()
-            assert "code" in data
+            assert data["code"] == "REPOSITORY_NOT_INSTALLED"
             assert "trace_id" in data
             assert data["data"] is None
 
@@ -59,7 +62,7 @@ class TestRepositoryResolve:
         )
         assert response.status_code == 400
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "VALIDATION_ERROR"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -71,7 +74,7 @@ class TestRepositoryResolve:
         )
         assert response.status_code == 400
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "VALIDATION_ERROR"
         assert "trace_id" in data
         assert data["data"] is None
 
@@ -96,7 +99,7 @@ class TestRepositoryResolve:
             )
             assert response.status_code == 200
             data = response.json()
-            assert data["full_name"] == "owner/repo"
+            assert data["data"]["full_name"] == "owner/repo"
 
     def test_resolve_ssh_url_rejected(self, client):
         """Reject SSH URL."""
@@ -106,5 +109,5 @@ class TestRepositoryResolve:
         )
         assert response.status_code == 400
         data = response.json()
-        assert "code" in data
+        assert data["code"] == "VALIDATION_ERROR"
         assert "trace_id" in data

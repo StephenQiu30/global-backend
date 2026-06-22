@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import List, Optional
 
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 from app.domain.markdown_files import (
     is_supported_markdown_path,
     is_translated_variant,
@@ -36,7 +38,11 @@ def get_repository_tree(
 ) -> List[dict]:
     """Fetch repository tree from GitHub API."""
     if github_client is None:
-        raise ValueError("github_client is required")
+        raise AppException(
+            code=ErrorCode.VALIDATION_ERROR,
+            message="github_client is required",
+            http_status=422,
+        )
 
     return github_client.get_repository_tree(
         installation_id=installation_id,
