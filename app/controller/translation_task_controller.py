@@ -5,6 +5,7 @@ from typing import Annotated, List
 from fastapi import APIRouter, Depends
 
 from app.core.exceptions import AppException
+from app.core.openapi import common_error_responses
 from app.core.response import ErrorCode, ApiResponseVO, success_response
 from app.dto.translation_task import (
     CreateTranslationTaskRequest,
@@ -41,6 +42,12 @@ def _get_file_previews_request(
     response_model=ApiResponseVO[TranslationTaskCreateVO],
     status_code=201,
     operation_id="create_translation_task",
+    responses=common_error_responses(
+        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.GITHUB_API_ERROR,
+        ErrorCode.REPOSITORY_NOT_FOUND,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 async def create_translation_task(
     request: CreateTranslationTaskRequest,
@@ -61,6 +68,10 @@ async def create_translation_task(
     "/translation-tasks/{task_id}",
     response_model=ApiResponseVO[TranslationTaskStatusVO],
     operation_id="get_task_status",
+    responses=common_error_responses(
+        ErrorCode.TASK_NOT_FOUND,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 async def get_task_status(
     request: Annotated[GetTranslationTaskStatusRequest, Depends(_get_task_status_request)],
@@ -81,6 +92,10 @@ async def get_task_status(
     "/translation-tasks/{task_id}/file-previews",
     response_model=ApiResponseVO[List[FilePreviewVO]],
     operation_id="get_file_previews",
+    responses=common_error_responses(
+        ErrorCode.TASK_NOT_FOUND,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 async def get_file_previews(
     request: Annotated[

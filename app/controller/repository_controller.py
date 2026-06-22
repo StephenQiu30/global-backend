@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.core.exceptions import AppException
 from app.core.github import get_github_client
+from app.core.openapi import common_error_responses
 from app.core.response import ErrorCode, ApiResponseVO, success_response
 from app.domain.markdown_files import validate_selection
 from app.domain.repository import parse_repository_input
@@ -26,6 +27,12 @@ router = APIRouter(prefix="/repositories", tags=["repositories"])
     "/resolve",
     response_model=ApiResponseVO[ResolveRepositoryVO],
     operation_id="resolve_repository",
+    responses=common_error_responses(
+        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.REPOSITORY_NOT_INSTALLED,
+        ErrorCode.GITHUB_API_ERROR,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 def resolve_repository(request: ResolveRepositoryRequest) -> ApiResponseVO[ResolveRepositoryVO]:
     """Parse and verify repository authorization."""
@@ -68,6 +75,12 @@ def resolve_repository(request: ResolveRepositoryRequest) -> ApiResponseVO[Resol
     "/{owner}/{repo}/markdown-files",
     response_model=ApiResponseVO[list[MarkdownFileVO]],
     operation_id="get_markdown_files",
+    responses=common_error_responses(
+        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.REPOSITORY_NOT_INSTALLED,
+        ErrorCode.GITHUB_API_ERROR,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 async def get_markdown_files(
     owner: str,

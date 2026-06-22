@@ -5,7 +5,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends
 
 from app.core.github import get_github_client
-from app.core.response import success_response, ApiResponseVO
+from app.core.openapi import common_error_responses
+from app.core.response import ErrorCode, success_response, ApiResponseVO
 from app.dto.installation import (
     ListInstallationRepositoriesRequest,
     VerifyInstallationRequest,
@@ -35,6 +36,12 @@ def _list_installation_repositories_request(
     "/verify",
     response_model=ApiResponseVO[InstallationVO],
     operation_id="verify_installation",
+    responses=common_error_responses(
+        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.GITHUB_API_ERROR,
+        ErrorCode.INSTALLATION_NOT_FOUND,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 async def verify_installation(
     body: VerifyInstallationRequest,
@@ -62,6 +69,11 @@ async def verify_installation(
     "/{installation_id}/repositories",
     response_model=ApiResponseVO[RepositoryListVO],
     operation_id="list_installation_repositories",
+    responses=common_error_responses(
+        ErrorCode.GITHUB_API_ERROR,
+        ErrorCode.INSTALLATION_NOT_FOUND,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 def list_installation_repositories(
     request: Annotated[
