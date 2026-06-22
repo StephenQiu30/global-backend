@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter, Depends
 
-from app.core.response import ApiResponseVO, success_response
+from app.core.openapi import common_error_responses
+from app.core.response import ErrorCode, ApiResponseVO, success_response
 from app.dto.translation_task import CreatePublicPreviewRequest
 from app.services.public_repository import PublicPreviewService, PublicPreviewResult
 from app.vo.translation_task_vo import FilePreviewVO, PublicPreviewVO
@@ -34,6 +35,13 @@ def _to_public_preview_vo(result: PublicPreviewResult) -> PublicPreviewVO:
     "/public-preview",
     response_model=ApiResponseVO[PublicPreviewVO],
     operation_id="create_public_preview",
+    responses=common_error_responses(
+        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.GITHUB_API_ERROR,
+        ErrorCode.TRANSLATION_ERROR,
+        ErrorCode.UNSUPPORTED_LANGUAGE,
+        ErrorCode.INTERNAL_ERROR,
+    ),
 )
 async def create_public_preview(
     request: CreatePublicPreviewRequest,

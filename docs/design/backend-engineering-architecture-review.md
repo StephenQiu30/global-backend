@@ -146,8 +146,10 @@ via a repository, and delegates to a service.
 
 ### `core/`
 
-Shared infrastructure: `Settings` (pydantic-settings), `AppError` exception
-class, and other cross-cutting utilities.
+Shared infrastructure: `Settings` (pydantic-settings), `ApiResponseVO[T]`
+generic response envelope, `ErrorCode` enum, `AppException` with centralized
+exception handlers, `TraceIdMiddleware`, and the `openapi.py` helper for
+shared OpenAPI error response metadata.
 
 ## Dependency Rules
 
@@ -192,14 +194,74 @@ definitions should exist outside this layer.
 **Why:** A single source of truth for HTTP interfaces makes Swagger
 documentation, API testing, and interface review predictable.
 
+## Global Response Contract
+
+All API responses use the `ApiResponseVO[T]` envelope defined in
+`app/core/response.py`:
+
+```json
+{
+  "code": "SUCCESS",
+  "message": "OK",
+  "data": "<payload>",
+  "trace_id": "<uuid>"
+}
+```
+
+Error responses use the same envelope with `data: null`:
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "<detail>",
+  "data": null,
+  "trace_id": "<uuid>"
+}
+```
+
+### Error Handling
+
+- `AppException` (in `app/core/exceptions.py`) is the structured application
+  exception carrying `code: ErrorCode`, `message`, `http_status`, and
+  `retryable`.
+- Centralized exception handlers convert `AppException`, `RequestValidationError`,
+  `StarletteHTTPException`, and unhandled `Exception` into the global envelope.
+- Controllers SHALL NOT maintain local error-to-status mappings. They raise
+  `AppException` and let the centralized handler produce the response.
+- `ErrorCode` is an 11-member uppercase string enum. Each code maps to an HTTP
+  status via `ERROR_CODE_HTTP_STATUS` in `app/core/response.py`.
+
+### OpenAPI Error Response Helper
+
+`app/core/openapi.py` provides `common_error_responses(*codes)` to generate
+OpenAPI `responses` metadata for route decorators. This avoids repeating
+per-endpoint error VO classes:
+
+```python
+from app.core.openapi import common_error_responses
+from app.core.response import ErrorCode
+
+@router.post(
+    "/endpoint",
+    response_model=ApiResponseVO[MyVO],
+    responses=common_error_responses(
+        ErrorCode.VALIDATION_ERROR,
+        ErrorCode.INTERNAL_ERROR,
+    ),
+)
+```
+
+Pre-built tuples (`VALIDATION_ERRORS`, `NOT_FOUND_ERRORS`, `SERVER_ERRORS`)
+cover common endpoint patterns.
+
 ## Swagger / OpenAPI Requirements
 
 Every new controller endpoint must satisfy these requirements:
 
 1. **Tags:** Each router must declare `tags=[...]` grouping related endpoints.
 2. **Response model:** Every endpoint must declare `response_model` using a VO.
-3. **Error responses:** Endpoints must declare `responses` metadata for
-   expected error codes (400, 403, 404, 422, 500).
+3. **Error responses:** Every endpoint must declare `responses` metadata using
+   `common_error_responses()` for the error codes it can raise.
 4. **Operation ID:** Configure stable `operation_id` generation.
 5. **No ORM models in responses:** Always convert to a VO.
 6. **Documentation endpoints:** Swagger UI at `/docs` and OpenAPI JSON at

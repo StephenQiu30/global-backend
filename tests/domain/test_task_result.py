@@ -3,7 +3,8 @@
 import pytest
 
 from app.domain.task import TaskStatus, FileMapping, TaskResult
-from app.core.errors import AppError
+from app.core.exceptions import AppException
+from app.core.response import ErrorCode
 
 
 class TestTaskStatus:
@@ -142,35 +143,69 @@ class TestTaskResultDefaults:
         assert result.error_message is None
 
 
-class TestAppError:
-    """Test AppError exception type."""
+class TestAppException:
+    """Test AppException exception type."""
 
     def test_has_code_field(self):
-        """GIVEN AppError with code THEN code is accessible."""
-        err = AppError(code="test_error", message="Test message")
-        assert err.code == "test_error"
+        """GIVEN AppException with code THEN code is accessible."""
+        err = AppException(
+            code=ErrorCode.VALIDATION_ERROR,
+            message="Test message",
+            http_status=422,
+        )
+        assert err.code == ErrorCode.VALIDATION_ERROR
 
     def test_has_message_field(self):
-        """GIVEN AppError with message THEN message is accessible."""
-        err = AppError(code="test_error", message="Test message")
+        """GIVEN AppException with message THEN message is accessible."""
+        err = AppException(
+            code=ErrorCode.INTERNAL_ERROR,
+            message="Test message",
+            http_status=500,
+        )
         assert err.message == "Test message"
 
+    def test_has_http_status(self):
+        """GIVEN AppException with http_status THEN http_status is accessible."""
+        err = AppException(
+            code=ErrorCode.TASK_NOT_FOUND,
+            message="Not found",
+            http_status=404,
+        )
+        assert err.http_status == 404
+
     def test_retryable_defaults_false(self):
-        """GIVEN AppError without retryable THEN retryable is False."""
-        err = AppError(code="test_error", message="Test message")
+        """GIVEN AppException without retryable THEN retryable is False."""
+        err = AppException(
+            code=ErrorCode.INTERNAL_ERROR,
+            message="Test message",
+            http_status=500,
+        )
         assert err.retryable is False
 
     def test_retryable_can_be_true(self):
-        """GIVEN AppError with retryable=True THEN retryable is True."""
-        err = AppError(code="test_error", message="Test message", retryable=True)
+        """GIVEN AppException with retryable=True THEN retryable is True."""
+        err = AppException(
+            code=ErrorCode.GITHUB_API_ERROR,
+            message="GitHub error",
+            http_status=502,
+            retryable=True,
+        )
         assert err.retryable is True
 
     def test_is_exception(self):
-        """GIVEN AppError THEN it is an Exception."""
-        err = AppError(code="test_error", message="Test message")
+        """GIVEN AppException THEN it is an Exception."""
+        err = AppException(
+            code=ErrorCode.INTERNAL_ERROR,
+            message="Test message",
+            http_status=500,
+        )
         assert isinstance(err, Exception)
 
     def test_str_representation(self):
-        """GIVEN AppError THEN str(err) returns message."""
-        err = AppError(code="test_error", message="Something went wrong")
+        """GIVEN AppException THEN str(err) returns message."""
+        err = AppException(
+            code=ErrorCode.INTERNAL_ERROR,
+            message="Something went wrong",
+            http_status=500,
+        )
         assert str(err) == "Something went wrong"
