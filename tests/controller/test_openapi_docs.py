@@ -167,7 +167,7 @@ class TestResponseModels:
         missing = []
         for path, methods in openapi_schema["paths"].items():
             for method, detail in methods.items():
-                if method in ("get", "post"):
+                if method in ("get", "post", "put", "patch", "delete"):
                     responses = detail.get("responses", {})
                     has_error = any(
                         not str(code).startswith("2") for code in responses.keys()
